@@ -82,7 +82,7 @@ Valida um código OTP fornecido pelo usuário.
     *   `401 Unauthorized`: `{ "success": false, "error": "OTP inválido." }`
     *   `401 Unauthorized`: `{ "success": false, "error": "OTP expirado." }`
     *   `409 Conflict`: `{ "success": false, "error": "OTP já utilizado." }`
-    *   `200 OK`: `{ "success": true, "message": "OTP validado com sucesso.", "data": { "role": "...", "token": "...", "expires_in": 7200 } }`
+    *   `200 OK`: `{ "success": true, "message": "OTP validado com sucesso.", "data": { "role": "...", "uo": "...", "token": "...", "expires_in": 7200 } }`
 
 ##### `validate_session`
 
@@ -92,7 +92,7 @@ Revalida a sessão de um usuário utilizando um token existente.
 *   **Respostas:**
     *   `400 Bad Request`: `{ "success": false, "error": "Formato de token ou usuário inválido." }`
     *   `404 Not Found`: `{ "success": false, "error": "Token não encontrado." }`
-    *   `200 OK`: `{ "success": true, "message": "Sessão revalidada com sucesso.", "data": { "role": "...", "token": "...", "expires_in": 7200 } }`
+    *   `200 OK`: `{ "success": true, "message": "Sessão revalidada com sucesso.", "data": { "role": "...", "uo": "...", "token": "...", "expires_in": 7200 } }`
 
 ##### `logout`
 
@@ -240,7 +240,7 @@ Obtém dados da unidade, em formato CSV separado por ponto e vírgula (`;`).
 
 *   **Parâmetros Necessários no Corpo da Requisição:** `user`, `token`, `endpoint`
 *   **Respostas:**
-    *   `200 OK`: `{ "success": true, "message": "Dados validados com sucesso.", "data": { "csv": "...", "role": "..." } }`
+    *   `200 OK`: `{ "success": true, "message": "Dados validados com sucesso.", "data": { "csv": "...", "role": "...", "uo": "..." } }`
 
 ##### `check_status`
 
@@ -248,4 +248,4 @@ Verifica o status de uma lista de restos a pagar.
 
 *   **Parâmetros Necessários no Corpo da Requisição:** `user`, `token`, `endpoint`, `arr_rppn`
 *   **Respostas:**
-    *   `200 OK`: `{ "success": true, "message": "Dados validados com sucesso.", "data": { "status": ..., "role": "..." } }`
+    *   `200 OK`: `{ "success": true, "message": "Dados validados com sucesso.", "data": { "status": ..., "role": "...", "uo": "..." } }`

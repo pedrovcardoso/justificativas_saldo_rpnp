@@ -2,12 +2,14 @@ const SESSION_KEYS = {
     user: "rppn_user",
     token: "rppn_token",
     role: "rppn_role",
+    uo: "rppn_uo"
 };
 
-function saveSession(user, token, role) {
+function saveSession(user, token, role, uo) {
     sessionStorage.setItem(SESSION_KEYS.user, user);
     sessionStorage.setItem(SESSION_KEYS.token, token);
     sessionStorage.setItem(SESSION_KEYS.role, role || "");
+    sessionStorage.setItem(SESSION_KEYS.uo, uo || "");
 }
 
 function getSession() {
@@ -18,6 +20,7 @@ function getSession() {
         user,
         token,
         role: sessionStorage.getItem(SESSION_KEYS.role) || "",
+        uo: sessionStorage.getItem(SESSION_KEYS.uo) || ""
     };
 }
 
