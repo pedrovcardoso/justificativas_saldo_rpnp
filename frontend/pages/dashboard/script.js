@@ -255,6 +255,11 @@ function applyTableColumnFilters() {
 
 
     window._tableFilteredData = tableFilteredData;
+
+    const sort = typeof window.getActiveTableSort === 'function' ? window.getActiveTableSort() : null;
+    if (sort && sort.key && sort.direction) {
+        window.sortDataArray(tableFilteredData, sort.key, sort.direction);
+    }
 }
 
 function updateFilterCountLabel() {
@@ -375,7 +380,7 @@ function buildTableHeader() {
     columns.forEach(col => {
         const th = document.createElement("th");
         const isHidden = col === "Unidade Orçamentária - Código" || col === "Unidade Orçamentária - Nome";
-        th.className = "px-4 py-3 text-left text-[11px] font-bold text-slate-400 normal-case [letter-spacing:normal] tracking-tight relative group overflow-hidden min-w-0";
+        th.className = "px-4 py-3 text-left text-[11px] font-bold text-slate-400 normal-case [letter-spacing:normal] tracking-tight relative group min-w-0";
 
         th.style.width = "180px";
         th.style.minWidth = "50px";
@@ -384,10 +389,14 @@ function buildTableHeader() {
         if (isHidden) th.style.display = "none";
 
         th.innerHTML = `
-            <span class="table-span-header cursor-pointer truncate block pr-8">${col}</span>
-            <button class="table-filter-trigger absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" data-key="${col}">
-                <i class="bx bx-filter filter-icon"></i>
-            </button>
+            <div class="flex items-center gap-1.5 min-w-0">
+                <i class='bx bx-grid-vertical table-drag-handle cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity'></i>
+                <span class="table-span-header cursor-pointer truncate min-w-0">${col}</span>
+                <span class="sort-indicator"></span>
+                <button class="table-filter-trigger shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" data-key="${col}">
+                    <i class="bx bx-filter filter-icon"></i>
+                </button>
+            </div>
         `;
 
         tr.appendChild(th);
