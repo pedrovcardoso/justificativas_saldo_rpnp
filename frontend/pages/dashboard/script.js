@@ -62,6 +62,7 @@ async function handleRefresh() {
 }
 
 async function loadData() {
+    PANEL_SELECT_IDS.forEach(id => renderSkeletonSelect(id));
     showState("stateLoading");
 
     if (!descriptiveData.unidades.length) {

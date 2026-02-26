@@ -154,14 +154,37 @@
         }
     }
 
+    window.renderSkeletonSelect = function (selectId) {
+        const selectElement = document.getElementById(selectId);
+        if (!selectElement) return;
+
+        const parent = selectElement.parentElement;
+        if (parent.querySelector(`.skeleton-select[data-select-id="${selectId}"]`)) return;
+
+        const skeleton = document.createElement('div');
+        skeleton.className = 'skeleton-select relative w-full h-[44px] rounded-2xl bg-slate-100 animate-pulse border-2 border-slate-100';
+        skeleton.dataset.selectId = selectId;
+
+        const inner = document.createElement('div');
+        inner.className = 'absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 bg-slate-200 rounded-lg';
+        skeleton.appendChild(inner);
+
+        selectElement.style.display = 'none';
+        parent.insertBefore(skeleton, selectElement);
+    };
+
     window.createCustomSelect = function (selectId) {
         const selectElement = document.getElementById(selectId);
         if (!selectElement) { console.error(`Elemento com ID "${selectId}" não encontrado.`); return; }
 
         const parent = selectElement.parentElement;
-        if (parent.querySelector(`.custom-select-container[data-select-id="${selectId}"]`)) {
-            parent.querySelector(`.custom-select-container[data-select-id="${selectId}"]`).remove();
-        }
+
+        // Remove skeleton or old container
+        const skeleton = parent.querySelector(`.skeleton-select[data-select-id="${selectId}"]`);
+        if (skeleton) skeleton.remove();
+
+        const oldContainer = parent.querySelector(`.custom-select-container[data-select-id="${selectId}"]`);
+        if (oldContainer) oldContainer.remove();
 
         const selectContainer = document.createElement('div');
         selectContainer.className = 'relative w-full custom-select-container';
@@ -212,7 +235,7 @@
 
         const placeholderSpan = document.createElement('span');
         placeholderSpan.className = 'absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-[13px] transition-opacity duration-200 pointer-events-none placeholder-hint';
-        placeholderSpan.textContent = selectElement.dataset.placeholder || '';
+        placeholderSpan.textContent = selectElement.dataset.placeholder || 'Todos';
 
         const arrow = document.createElement('div');
         arrow.className = 'arrow-icon absolute right-3 top-1/2 -translate-y-1/2 pl-3 transition-transform duration-300 pointer-events-none flex items-center h-8';

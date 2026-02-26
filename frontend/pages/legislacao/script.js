@@ -21,6 +21,7 @@ function normalize(text) {
 }
 
 async function init() {
+    ["filterTipo", "filterEsfera", "filterStatus", "filterAno"].forEach(id => renderSkeletonSelect(id));
     try {
         const res = await fetch("../../assets/json/legislacao.json");
         allLegislacoes = await res.json();

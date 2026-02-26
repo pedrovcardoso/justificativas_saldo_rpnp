@@ -39,6 +39,7 @@ function showState(name) {
 }
 
 async function init() {
+    PANEL_SELECT_IDS.forEach(id => renderSkeletonSelect(id));
     showState("stateLoading");
     await loadDescriptiveData();
 
