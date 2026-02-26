@@ -22,7 +22,29 @@ function getColumns(data) {
 }
 
 function formatMoeda(value) {
-    const num = parseFloat(String(value).replace(",", "."));
+    if (value === null || value === undefined || value === "") return "—";
+
+    const num = parseMoeda(value);
     if (isNaN(num)) return value;
-    return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+    return new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(num);
+}
+
+function parseMoeda(value) {
+    if (value === null || value === undefined || value === "") return NaN;
+
+    let cleanValue = String(value).trim();
+
+    if (cleanValue.includes(".") && cleanValue.includes(",")) {
+        cleanValue = cleanValue.replace(/\./g, "").replace(",", ".");
+    } else {
+        cleanValue = cleanValue.replace(",", ".");
+    }
+
+    return parseFloat(cleanValue);
 }

@@ -87,7 +87,18 @@
 
         const validOptions = Array.from(originalSelect.options).filter(o => o.value !== "" && !o.textContent.toLowerCase().includes("todas") && !o.textContent.toLowerCase().includes("todos"));
 
-        const filtered = validOptions.filter(o =>
+        // Detectar se todas as opções são numéricas
+        const isNumeric = validOptions.every(o => !isNaN(typeof parseMoeda === 'function' ? parseMoeda(o.textContent) : parseFloat(o.textContent)));
+
+        const sortedOptions = [...validOptions].sort((a, b) => {
+            if (isNumeric) {
+                const parse = typeof parseMoeda === 'function' ? parseMoeda : parseFloat;
+                return parse(b.textContent) - parse(a.textContent);
+            }
+            return a.textContent.localeCompare(b.textContent, 'pt');
+        });
+
+        const filtered = sortedOptions.filter(o =>
             _normalizeText(o.textContent).includes(normalizedSearch)
         );
 
@@ -99,6 +110,8 @@
                 fragment.appendChild(li);
             });
         }
+
+
 
         list.appendChild(fragment);
 

@@ -45,10 +45,38 @@
         const headerCell = triggerElement.closest('th');
 
         const values = _getFilterableValues(key);
-        const sortedValues = [...values].sort((a, b) => a.localeCompare(b, 'pt'));
+
+        const isNumeric = [...values].every(v => !isNaN(typeof parseMoeda === 'function' ? parseMoeda(v) : parseFloat(v)));
+
+        const sortedValues = [...values].sort((a, b) => {
+            if (isNumeric) {
+                const parse = typeof parseMoeda === 'function' ? parseMoeda : parseFloat;
+                return parse(b) - parse(a);
+            }
+            return a.localeCompare(b, 'pt');
+        });
 
         const menu = document.createElement('div');
-        menu.className = 'table-filter-menu absolute top-full left-0 mt-2 z-50 w-72 bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 p-2 flex flex-col max-h-80 animate-in fade-in zoom-in-95 duration-200';
+        menu.className = 'table-filter-menu absolute top-full left-0 mt-2 z-50 w-72 bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 p-2 flex flex-col max-h-96 animate-in fade-in zoom-in-95 duration-200';
+
+        let rangeHtml = '';
+        if (isNumeric) {
+            const currentRange = activeFilters[key + '_range'] || { min: '', max: '' };
+            rangeHtml = `
+                <div class="p-2 pt-0 border-b border-slate-100 mb-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="relative">
+                            <span class="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">MÍN</span>
+                            <input type="number" step="any" placeholder="0.00" value="${currentRange.min}" class="range-min w-full pl-9 pr-2 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-[${CONFIG.primaryColor}]">
+                        </div>
+                        <div class="relative">
+                            <span class="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">MÁX</span>
+                            <input type="number" step="any" placeholder="∞" value="${currentRange.max}" class="range-max w-full pl-9 pr-2 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-[${CONFIG.primaryColor}]">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         const searchWrapper = document.createElement('div');
         searchWrapper.className = 'relative mb-2';
@@ -88,28 +116,39 @@
             <button class="clear-filter-btn text-sm text-slate-500 hover:text-slate-800 transition-colors">Limpar Filtro</button>
         `;
 
+        if (rangeHtml) {
+            const rangeDiv = document.createElement('div');
+            rangeDiv.innerHTML = rangeHtml;
+            menu.appendChild(rangeDiv.firstElementChild);
+        }
         menu.append(searchWrapper, listContainer, actionsContainer);
         headerCell.appendChild(menu);
 
         menu.addEventListener('click', e => e.stopPropagation());
         const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
+        const minInput = menu.querySelector('.range-min');
+        const maxInput = menu.querySelector('.range-max');
         const searchInput = searchWrapper.querySelector('input');
         const filterIcon = triggerElement.querySelector('.filter-icon');
-
-        listContainer.querySelectorAll('.peer').forEach(peer => {
-            const customBox = peer.nextElementSibling;
-            const svg = customBox.querySelector('svg');
-            peer.addEventListener('change', () => {
-                svg.classList.toggle('hidden', !peer.checked);
-            });
-            svg.classList.toggle('hidden', !peer.checked);
-        });
 
         const updateFilterState = () => {
             const selectedValues = [...checkboxes].filter(cb => cb.checked).map(cb => cb.value);
             activeFilters[key] = selectedValues;
+
+            let hasRange = false;
+            if (isNumeric) {
+                const min = minInput.value;
+                const max = maxInput.value;
+                if (min !== '' || max !== '') {
+                    activeFilters[key + '_range'] = { min, max };
+                    hasRange = true;
+                } else {
+                    delete activeFilters[key + '_range'];
+                }
+            }
+
             const allOptionsCount = checkboxes.length;
-            const hasActiveFilter = selectedValues.length > 0 && selectedValues.length < allOptionsCount;
+            const hasActiveFilter = (selectedValues.length > 0 && selectedValues.length < allOptionsCount) || hasRange;
             filterIcon.className = hasActiveFilter ? `bx bxs-filter-alt filter-icon text-slate-400` : 'bx bx-filter filter-icon';
 
             triggerElement.classList.toggle('opacity-100', hasActiveFilter);
@@ -120,6 +159,11 @@
         };
 
         checkboxes.forEach(cb => cb.addEventListener('change', updateFilterState));
+        if (isNumeric) {
+            minInput.addEventListener('input', updateFilterState);
+            maxInput.addEventListener('input', updateFilterState);
+        }
+
         menu.querySelector('.clear-filter-btn').addEventListener('click', () => {
             checkboxes.forEach(cb => {
                 cb.checked = false;
@@ -209,11 +253,15 @@
                     const deltaX = moveEvent.pageX - startX;
                     const newWidth = startWidth + deltaX;
                     const minWidth = 50;
-                    if (newWidth > minWidth) {
+                    const maxWidth = window.innerWidth * 0.9;
+
+                    if (newWidth > minWidth && newWidth < maxWidth) {
                         header.style.width = newWidth + 'px';
                         header.style.minWidth = newWidth + 'px';
+                        header.style.maxWidth = newWidth + 'px';
                     }
                 };
+
 
                 const handleMouseUp = () => {
                     document.removeEventListener('mousemove', handleMouseMove);
@@ -375,6 +423,8 @@
         function closeMenu() {
             const existingMenu = document.querySelector('.column-visibility-menu');
             if (existingMenu) existingMenu.remove();
+            triggerBtn.classList.add("bg-slate-50", "text-slate-500", "border-slate-100");
+            triggerBtn.classList.remove("bg-primary-soft", "text-primary", "border-primary");
         }
 
         triggerBtn.addEventListener('click', function (e) {
@@ -385,15 +435,20 @@
                 return;
             }
 
+            triggerBtn.classList.remove("bg-slate-50", "text-slate-500", "border-slate-100");
+            triggerBtn.classList.add("bg-primary-soft", "text-primary", "border-primary");
+
             const headers = Array.from(table.querySelectorAll('thead th')).slice(0, -1);
+            const parent = triggerBtn.parentElement;
+            if (parent) parent.style.position = 'relative';
+
             const menu = document.createElement('div');
             menu.className = 'column-visibility-menu absolute mt-2 z-50 w-72 bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 p-2 flex flex-col max-h-80 transition-all animate-in fade-in zoom-in-95 duration-200';
-
-            const rect = triggerBtn.getBoundingClientRect();
-            menu.style.top = `${rect.bottom + window.scrollY}px`;
-            menu.style.left = `${Math.max(10, rect.right + window.scrollX - 288)}px`;
+            menu.style.top = '100%';
+            menu.style.right = '0';
 
             const searchWrapper = document.createElement('div');
+
             searchWrapper.className = 'relative mb-2';
             searchWrapper.innerHTML = `
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -452,7 +507,8 @@
             `;
 
             menu.append(searchWrapper, listContainer, actionsContainer);
-            document.body.appendChild(menu);
+            if (parent) parent.appendChild(menu);
+            else document.body.appendChild(menu);
 
             const searchInput = searchWrapper.querySelector('input');
             searchInput.addEventListener('input', () => {

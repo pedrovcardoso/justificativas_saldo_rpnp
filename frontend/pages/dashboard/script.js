@@ -212,7 +212,7 @@ function applyPanelFilters() {
         const matchesElem = elementoFilters.length === 0 || elementoFilters.includes(row["Elemento Item - Descrição"]);
         const statusVal = row[statusCol] || "";
         const matchesStatus = statusFilters.length === 0 || statusFilters.includes(statusVal);
-        const valSaldo = parseFloat(String(row[saldoKey] || "0").replace(",", "."));
+        const valSaldo = parseMoeda(row[saldoKey]) || 0;
         const matchesSaldo = valSaldo >= minSaldo && valSaldo <= maxSaldo;
 
         return matchesSearch && matchesUE && matchesProg && matchesElem && matchesStatus && matchesSaldo;
@@ -220,8 +220,8 @@ function applyPanelFilters() {
 
     const saldoKeySort = "Saldo Restos a Pagar Não Processado";
     panelFilteredData.sort((a, b) => {
-        const valA = parseFloat(String(a[saldoKeySort] || "0").replace(",", "."));
-        const valB = parseFloat(String(b[saldoKeySort] || "0").replace(",", "."));
+        const valA = parseMoeda(a[saldoKeySort]) || 0;
+        const valB = parseMoeda(b[saldoKeySort]) || 0;
         return valB - valA;
     });
 }
@@ -231,16 +231,27 @@ function applyTableColumnFilters() {
 
     tableFilteredData = panelFilteredData.filter(row => {
         for (const colKey in tableColFilters) {
+            if (colKey.endsWith('_range')) continue;
+
             const reqVals = tableColFilters[colKey];
+            const range = tableColFilters[colKey + '_range'];
+            const cellValueStr = String(row[colKey] ?? '');
+
             if (reqVals && reqVals.length > 0) {
-                const cellValue = String(row[colKey] ?? '');
-                const cellValuesList = cellValue.split('||');
+                const cellValuesList = cellValueStr.split('||');
                 const isMatchFound = cellValuesList.some(val => reqVals.includes(val));
                 if (!isMatchFound) return false;
+            }
+
+            if (range) {
+                const val = typeof parseMoeda === 'function' ? parseMoeda(cellValueStr) : parseFloat(cellValueStr);
+                if (range.min !== '' && val < parseFloat(range.min)) return false;
+                if (range.max !== '' && val > parseFloat(range.max)) return false;
             }
         }
         return true;
     });
+
 
     window._tableFilteredData = tableFilteredData;
 }
@@ -313,7 +324,7 @@ function enrichRows(rows) {
 
         const progCode = String(row["Programa - Código"] || "");
         let progDesc = "N/A";
-        const ano = row["Exercício de Emissão"] || row["Ano"];
+        const ano = row["Ano Origem Restos a Pagar"];
         const yearEntry = descriptiveData.programas.find(p => String(p.ano) === String(ano));
         if (yearEntry) {
             const p = yearEntry.programas.find(pr => String(pr.codigo) === progCode);
@@ -326,9 +337,12 @@ function enrichRows(rows) {
         }
         row["Programa - Descrição"] = progDesc;
 
-        const elemCode = String(row["Elemento Item - Código"] || "");
+        const elemCode = String(row["Elemento Item Despesa - Código"] || "");
         let elemDesc = "N/A";
-        const yearEntryElem = descriptiveData.elementos.find(p => String(p.ano) === String(ano));
+
+        const anoRef = row["Ano Origem Restos a Pagar"];
+
+        const yearEntryElem = descriptiveData.elementos.find(p => String(p.ano) === String(anoRef));
         if (yearEntryElem) {
             const e = yearEntryElem.itens.find(i => String(i.codigo) === elemCode);
             if (e) elemDesc = e.descricao;
@@ -339,6 +353,7 @@ function enrichRows(rows) {
             }
         }
         row["Elemento Item - Descrição"] = elemDesc;
+
     });
 }
 
@@ -359,15 +374,21 @@ function buildTableHeader() {
     columns.forEach(col => {
         const th = document.createElement("th");
         const isHidden = col === "Unidade Orçamentária - Código" || col === "Unidade Orçamentária - Nome";
-        th.className = "px-6 py-3 text-left text-[11px] font-bold text-slate-400 normal-case [letter-spacing:normal] tracking-tight whitespace-nowrap relative group";
+        th.className = "px-4 py-3 text-left text-[11px] font-bold text-slate-400 normal-case [letter-spacing:normal] tracking-tight relative group overflow-hidden min-w-0";
+
+        th.style.width = "180px";
+        th.style.minWidth = "50px";
+        th.style.maxWidth = "400px";
+
         if (isHidden) th.style.display = "none";
 
         th.innerHTML = `
-            <span class="table-span-header cursor-pointer">${col}</span>
-            <button class="table-filter-trigger ml-2 opacity-0 group-hover:opacity-100 transition-opacity" data-key="${col}">
+            <span class="table-span-header cursor-pointer truncate block pr-8">${col}</span>
+            <button class="table-filter-trigger absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" data-key="${col}">
                 <i class="bx bx-filter filter-icon"></i>
             </button>
         `;
+
         tr.appendChild(th);
     });
     const thAcao = document.createElement("th");
@@ -417,7 +438,7 @@ function renderRows(rows) {
         columns.forEach(col => {
             const td = document.createElement("td");
             const isHidden = col === "Unidade Orçamentária - Código" || col === "Unidade Orçamentária - Nome";
-            td.className = "px-6 py-3 text-[13px] text-slate-600 font-medium overflow-hidden";
+            td.className = "px-4 py-3 text-[13px] text-slate-600 font-medium overflow-hidden min-w-0";
             if (isHidden) td.style.display = "none";
             td.setAttribute("data-key", col);
             td.setAttribute("data-value", row[col] ?? "");
@@ -505,10 +526,10 @@ function toggleFilterPanel() {
 
     if (isOpen) {
         btn.classList.remove("bg-slate-50", "text-slate-500", "border-slate-100");
-        btn.classList.add("bg-[#003D5D]", "text-white", "border-[#003D5D]");
+        btn.classList.add("bg-primary-soft", "text-primary", "border-primary");
     } else {
         btn.classList.add("bg-slate-50", "text-slate-500", "border-slate-100");
-        btn.classList.remove("bg-[#003D5D]", "text-white", "border-[#003D5D]");
+        btn.classList.remove("bg-primary-soft", "text-primary", "border-primary");
     }
 }
 
