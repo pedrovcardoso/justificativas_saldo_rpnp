@@ -1,16 +1,15 @@
 const session = requireSession("../login/index.html");
 
-let allRows = [];
-let filteredRows = [];
+let rawData = [];
+let panelFilteredData = [];
+let tableFilteredData = [];
 let columns = [];
 let currentRppn = "";
 let currentPage = 1;
 let itemsPerPage = parseInt(localStorage.getItem("rppn_items_per_page")) || 10;
 const CACHE_KEY = "rppn_data_cache";
+const PANEL_SELECT_IDS = ["filterUE", "filterPrograma", "filterElemento", "filterStatus"];
 
-window.addEventListener('tableFiltersChanged', () => {
-    if (typeof filterTable === 'function') filterTable();
-});
 let descriptiveData = {
     unidades: [],
     programas: [],
@@ -89,20 +88,11 @@ async function loadData() {
         }
     }
 
-    allRows = parseCSV(csvRaw);
+    rawData = parseCSV(csvRaw);
+    enrichRows(rawData);
 
-    enrichRows(allRows);
-
-    filteredRows = [...allRows];
-    const saldoKey = "Saldo Restos a Pagar Não Processado";
-    filteredRows.sort((a, b) => {
-        const valA = parseFloat(String(a[saldoKey] || "0").replace(",", "."));
-        const valB = parseFloat(String(b[saldoKey] || "0").replace(",", "."));
-        return valB - valA;
-    });
-
-    if (allRows.length > 0) {
-        const available = Object.keys(allRows[0]);
+    if (rawData.length > 0) {
+        const available = Object.keys(rawData[0]);
         const preferred = [
             "Unidade Orçamentária - Código",
             "Unidade Orçamentária - Nome",
@@ -126,17 +116,15 @@ async function loadData() {
         columns = [];
     }
 
-    if (!allRows.length) {
+    if (!rawData.length) {
         showState("stateEmpty");
         updateCards([]);
         return;
     }
 
-    currentPage = 1;
     buildTableHeader();
-    filterTable();
-    updateCards(allRows);
     populateFilterOptions();
+    reloadUI();
     showState("stateTable");
 }
 
@@ -146,7 +134,7 @@ function populateFilterOptions() {
     const elementoSet = new Set();
     const statusSet = new Set();
 
-    allRows.forEach(row => {
+    rawData.forEach(row => {
         if (row["Unidade Executora - Nome"]) ueSet.add(row["Unidade Executora - Nome"]);
         if (row["Programa - Descrição"]) programaSet.add(row["Programa - Descrição"]);
         if (row["Elemento Item - Descrição"]) elementoSet.add(row["Elemento Item - Descrição"]);
@@ -158,13 +146,18 @@ function populateFilterOptions() {
     const fillSelect = (id, set) => {
         const select = document.getElementById(id);
         if (!select) return;
-        select.innerHTML = '';
-        [...set].sort().forEach(val => {
-            const opt = document.createElement("option");
-            opt.value = val;
-            opt.textContent = val;
-            select.appendChild(opt);
-        });
+        const sorted = [...set].sort();
+        if (typeof setCustomSelectOptions !== 'undefined') {
+            setCustomSelectOptions(id, sorted);
+        } else {
+            select.innerHTML = '';
+            sorted.forEach(val => {
+                const opt = document.createElement("option");
+                opt.value = val;
+                opt.textContent = val;
+                select.appendChild(opt);
+            });
+        }
     };
 
     fillSelect("filterUE", ueSet);
@@ -172,30 +165,137 @@ function populateFilterOptions() {
     fillSelect("filterElemento", elementoSet);
     fillSelect("filterStatus", statusSet);
 
-    if (typeof createCustomSelect !== 'undefined') {
-        ["filterUE", "filterPrograma", "filterElemento", "filterStatus"].forEach(id => {
+    if (typeof onCustomSelectChange !== 'undefined') {
+        PANEL_SELECT_IDS.forEach(id => {
             if (document.getElementById(id)) {
-                createCustomSelect(id);
-                onCustomSelectChange(id, () => filterTable());
+                onCustomSelectChange(id, () => reloadUI());
             }
         });
     }
 }
 
-function clearAllTableFilters() {
-    document.getElementById("searchInput").value = "";
-    document.getElementById("filterSaldoMin").value = "0.01";
-    document.getElementById("filterSaldoMax").value = "";
+function reloadUI() {
+    applyPanelFilters();
+    applyTableColumnFilters();
+    updateCards(panelFilteredData);
+
+    if (!tableFilteredData.length) {
+        showState("stateEmpty");
+        return;
+    }
+
+    showState("stateTable");
+    currentPage = 1;
+    renderCurrentPage();
+    updateFilterCountLabel();
+}
+
+function applyPanelFilters() {
+    const q = (document.getElementById("searchInput")?.value || "").toLowerCase();
+
+    const getVals = id => typeof getCustomSelectValues !== 'undefined' ? getCustomSelectValues(id) : [];
+    const ueFilters = getVals("filterUE");
+    const programaFilters = getVals("filterPrograma");
+    const elementoFilters = getVals("filterElemento");
+    const statusFilters = getVals("filterStatus");
+
+    const minSaldo = parseFloat(document.getElementById("filterSaldoMin")?.value) || 0;
+    const maxSaldo = parseFloat(document.getElementById("filterSaldoMax")?.value) || Infinity;
+
+    const saldoKey = "Saldo Restos a Pagar Não Processado";
+    const statusCol = columns.find(c => /status/i.test(c)) || "";
+
+    panelFilteredData = rawData.filter(row => {
+        const matchesSearch = !q || columns.some(c => String(row[c] ?? "").toLowerCase().includes(q));
+        const matchesUE = ueFilters.length === 0 || ueFilters.includes(row["Unidade Executora - Nome"]);
+        const matchesProg = programaFilters.length === 0 || programaFilters.includes(row["Programa - Descrição"]);
+        const matchesElem = elementoFilters.length === 0 || elementoFilters.includes(row["Elemento Item - Descrição"]);
+        const statusVal = row[statusCol] || "";
+        const matchesStatus = statusFilters.length === 0 || statusFilters.includes(statusVal);
+        const valSaldo = parseFloat(String(row[saldoKey] || "0").replace(",", "."));
+        const matchesSaldo = valSaldo >= minSaldo && valSaldo <= maxSaldo;
+
+        return matchesSearch && matchesUE && matchesProg && matchesElem && matchesStatus && matchesSaldo;
+    });
+
+    const saldoKeySort = "Saldo Restos a Pagar Não Processado";
+    panelFilteredData.sort((a, b) => {
+        const valA = parseFloat(String(a[saldoKeySort] || "0").replace(",", "."));
+        const valB = parseFloat(String(b[saldoKeySort] || "0").replace(",", "."));
+        return valB - valA;
+    });
+}
+
+function applyTableColumnFilters() {
+    const tableColFilters = typeof window.getActiveTableFilters === 'function' ? window.getActiveTableFilters() : {};
+
+    tableFilteredData = panelFilteredData.filter(row => {
+        for (const colKey in tableColFilters) {
+            const reqVals = tableColFilters[colKey];
+            if (reqVals && reqVals.length > 0) {
+                const cellValue = String(row[colKey] ?? '');
+                const cellValuesList = cellValue.split('||');
+                const isMatchFound = cellValuesList.some(val => reqVals.includes(val));
+                if (!isMatchFound) return false;
+            }
+        }
+        return true;
+    });
+
+    window._tableFilteredData = tableFilteredData;
+}
+
+function updateFilterCountLabel() {
+    const q = document.getElementById("searchInput")?.value || "";
+    const getVals = id => typeof getCustomSelectValues !== 'undefined' ? getCustomSelectValues(id) : [];
+    const hasActiveFilters =
+        q ||
+        getVals("filterUE").length > 0 ||
+        getVals("filterPrograma").length > 0 ||
+        getVals("filterElemento").length > 0 ||
+        getVals("filterStatus").length > 0 ||
+        (document.getElementById("filterSaldoMin")?.value || "") !== "0.01" ||
+        (document.getElementById("filterSaldoMax")?.value || "") !== "";
+
+    const countLabel = document.getElementById("filterResultCount");
+    if (!countLabel) return;
+    if (hasActiveFilters) {
+        countLabel.classList.remove("opacity-0");
+        countLabel.textContent = `${panelFilteredData.length} ${panelFilteredData.length === 1 ? 'valor encontrado' : 'valores encontrados'} nessa configuração`;
+    } else {
+        countLabel.classList.add("opacity-0");
+    }
+}
+
+window.addEventListener('tableFiltersChanged', () => {
+    applyTableColumnFilters();
+    if (!tableFilteredData.length) {
+        showState("stateEmpty");
+        return;
+    }
+    showState("stateTable");
+    renderCurrentPage();
+});
+
+function clearAllFilters() {
+    const searchInput = document.getElementById("searchInput");
+    if (searchInput) searchInput.value = "";
+
+    const saldoMin = document.getElementById("filterSaldoMin");
+    if (saldoMin) saldoMin.value = "0.01";
+
+    const saldoMax = document.getElementById("filterSaldoMax");
+    if (saldoMax) saldoMax.value = "";
 
     if (typeof clearCustomSelect !== 'undefined') {
-        ["filterUE", "filterPrograma", "filterElemento", "filterStatus"].forEach(id => {
+        PANEL_SELECT_IDS.forEach(id => {
             if (document.getElementById(id)) clearCustomSelect(id);
         });
     }
 
     window.dispatchEvent(new Event('clearAllFilters'));
 
-    filterTable();
+    reloadUI();
 }
 
 function enrichRows(rows) {
@@ -278,7 +378,7 @@ function buildTableHeader() {
 
 function renderCurrentPage() {
     const start = (currentPage - 1) * itemsPerPage;
-    const rowsToDisplay = filteredRows.slice(start, start + itemsPerPage);
+    const rowsToDisplay = tableFilteredData.slice(start, start + itemsPerPage);
     renderRows(rowsToDisplay);
     updatePaginationUI();
     afterTableRender();
@@ -359,7 +459,7 @@ function renderRows(rows) {
 }
 
 function updatePaginationUI() {
-    const totalItems = filteredRows.length;
+    const totalItems = tableFilteredData.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
     const start = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
     const end = Math.min(currentPage * itemsPerPage, totalItems);
@@ -382,7 +482,7 @@ function handleRowsPerPageChange() {
 
 function goToPage(val) {
     const page = parseInt(val);
-    const totalPages = Math.ceil(filteredRows.length / itemsPerPage) || 1;
+    const totalPages = Math.ceil(tableFilteredData.length / itemsPerPage) || 1;
     if (page >= 1 && page <= totalPages) {
         currentPage = page;
         renderCurrentPage();
@@ -395,74 +495,6 @@ function changePage(delta) {
     currentPage += delta;
     renderCurrentPage();
     document.getElementById("stateTable").scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function filterTable() {
-    const q = document.getElementById("searchInput").value.toLowerCase();
-
-    const getVals = id => typeof getCustomSelectValues !== 'undefined' ? getCustomSelectValues(id) : [];
-    const ueFilters = getVals("filterUE");
-    const programaFilters = getVals("filterPrograma");
-    const elementoFilters = getVals("filterElemento");
-    const statusFilters = getVals("filterStatus");
-
-    const minSaldo = parseFloat(document.getElementById("filterSaldoMin").value) || 0;
-    const maxSaldo = parseFloat(document.getElementById("filterSaldoMax").value) || Infinity;
-
-    const saldoKey = "Saldo Restos a Pagar Não Processado";
-    const statusCol = columns.find(c => /status/i.test(c)) || "";
-
-    const tableColFilters = typeof window.getActiveTableFilters === 'function' ? window.getActiveTableFilters() : {};
-
-    filteredRows = allRows.filter(row => {
-        const matchesSearch = !q || columns.some(c => String(row[c] ?? "").toLowerCase().includes(q));
-
-        const matchesUE = ueFilters.length === 0 || ueFilters.includes(row["Unidade Executora - Nome"]);
-        const matchesProg = programaFilters.length === 0 || programaFilters.includes(row["Programa - Descrição"]);
-        const matchesElem = elementoFilters.length === 0 || elementoFilters.includes(row["Elemento Item - Descrição"]);
-
-        const statusVal = row[statusCol] || "";
-        const matchesStatus = statusFilters.length === 0 || statusFilters.includes(statusVal);
-
-        const valSaldo = parseFloat(String(row[saldoKey] || "0").replace(",", "."));
-        const matchesSaldo = valSaldo >= minSaldo && valSaldo <= maxSaldo;
-
-        let matchesColFilters = true;
-        for (const colKey in tableColFilters) {
-            const reqVals = tableColFilters[colKey];
-            if (reqVals && reqVals.length > 0) {
-                const cellValue = String(row[colKey] ?? '');
-                const cellValuesList = cellValue.split('||');
-                const isMatchFound = cellValuesList.some(val => reqVals.includes(val));
-                if (!isMatchFound) {
-                    matchesColFilters = false;
-                    break;
-                }
-            }
-        }
-
-        return matchesSearch && matchesUE && matchesProg && matchesElem && matchesStatus && matchesSaldo && matchesColFilters;
-    });
-
-    currentPage = 1;
-
-    const hasActiveFilters = q || ueFilters.length > 0 || programaFilters.length > 0 || elementoFilters.length > 0 || statusFilters.length > 0 || document.getElementById("filterSaldoMin").value !== "0.01" || document.getElementById("filterSaldoMax").value !== "";
-
-    const countLabel = document.getElementById("filterResultCount");
-    if (countLabel) {
-        if (hasActiveFilters) {
-            countLabel.classList.remove("opacity-0");
-            countLabel.textContent = `${filteredRows.length} ${filteredRows.length === 1 ? 'valor encontrado' : 'valores encontrados'} nessa configuração`;
-        } else {
-            countLabel.classList.add("opacity-0");
-        }
-    }
-
-    updateCards(filteredRows);
-
-    if (!filteredRows.length) { showState("stateEmpty"); return; }
-    showState("stateTable");
-    renderCurrentPage();
 }
 
 function toggleFilterPanel() {
@@ -484,7 +516,7 @@ function openModal(rppn, row) {
     currentRppn = rppn;
     if (!row) {
         const rppnCol = columns.find(c => /rppn|empenho|id/i.test(c)) || columns[0];
-        row = allRows.find(r => r[rppnCol] === rppn);
+        row = rawData.find(r => r[rppnCol] === rppn);
     }
 
     const labelEl = document.getElementById("modalRppnLabel");
@@ -526,22 +558,6 @@ function openModal(rppn, row) {
 }
 
 function closeModal() { document.getElementById("modalJust").classList.add("hidden"); }
-
-function clearAllTableFilters() {
-    document.getElementById("searchInput").value = "";
-    if (typeof clearCustomSelect !== 'undefined') {
-        clearCustomSelect("filterUO");
-        clearCustomSelect("filterUE");
-    }
-    window.dispatchEvent(new CustomEvent("clearAllFilters"));
-    filterTable();
-}
-
-window.addEventListener('tableFiltersChanged', () => {
-    const q = document.getElementById("searchInput").value;
-    const clearBtn = document.getElementById("btnClearFilters");
-    clearBtn.classList.remove("hidden");
-});
 
 function onAcaoChange() {
     const acao = document.querySelector("input[name=modalAcao]:checked")?.value;
@@ -607,21 +623,15 @@ if (session) {
     }
 }
 
-async function afterTableRender() {
-    const globalValues = {};
-    columns.forEach(col => {
-        const values = new Set();
-        allRows.forEach(row => {
-            const val = row[col];
-            if (val) String(val).split('||').forEach(v => v && values.add(v));
-        });
-        globalValues[col] = [...values];
-    });
-
+function afterTableRender() {
     setTimeout(() => {
-        initializeTableFilters("stateTable", { globalValues });
+        initializeTableFilters("stateTable");
         initializeTableResizing("stateTable");
         initializeTableReordering("stateTable");
         initializeColumnVisibility("stateTable", "btnColumns");
     }, 50);
 }
+
+function filterTable() { reloadUI(); }
+function clearAllTableFilters() { clearAllFilters(); }
+

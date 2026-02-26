@@ -1,17 +1,9 @@
 (function () {
-    const CONFIG = {
-        primaryColor: '[#003D5D]'
-    };
-    const REMOVING_CLASSES = [
-        'transition-all', 'duration-200', 'ease-out',
-        'max-h-0', 'opacity-0', '!p-0', '!m-0', '!border-0'
-    ];
     const _eventListeners = {};
 
     function _normalizeText(text) {
         if (!text) return '';
-        const normalized = text.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        return normalized.replace(/[^a-z0-9]/g, "");
+        return text.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
     }
 
     function _fireChangeEvent(selectId) {
@@ -70,7 +62,6 @@
             if (placeholderSpan) placeholderSpan.classList.remove('opacity-0', 'invisible');
         } else if (selectedCount === validOptions.length) {
             if (placeholderSpan) placeholderSpan.classList.add('opacity-0', 'invisible');
-
             const allSelectedHint = document.createElement('i');
             allSelectedHint.className = 'text-slate-400 text-[12px] italic font-medium tracking-wide all-selected-hint px-1 py-1 block';
             allSelectedHint.textContent = 'Todos os itens selecionados';
@@ -294,7 +285,6 @@
 
         Array.from(selectElement.options).forEach(o => o.selected = false);
         _updateDropdownResults(container, container.querySelector('.search-input')?.value || '');
-        _fireChangeEvent(selectId);
     };
 
     window.selectAllCustomSelect = function (selectId) {
@@ -308,6 +298,37 @@
 
         _updateDropdownResults(container, container.querySelector('.search-input')?.value || '');
         _fireChangeEvent(selectId);
+    };
+
+    window.setCustomSelectOptions = function (selectId, values) {
+        const selectElement = document.getElementById(selectId);
+        if (!selectElement) return;
+
+        const previouslySelected = new Set(
+            Array.from(selectElement.options)
+                .filter(o => o.selected)
+                .map(o => o.value)
+        );
+
+        selectElement.innerHTML = '';
+        values.forEach(val => {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = val;
+            if (previouslySelected.has(val)) opt.selected = true;
+            selectElement.appendChild(opt);
+        });
+
+        createCustomSelect(selectId);
+
+        if (_eventListeners[selectId]) {
+            const newListeners = _eventListeners[selectId].slice();
+            _eventListeners[selectId] = [];
+            newListeners.forEach(cb => {
+                if (!_eventListeners[selectId]) _eventListeners[selectId] = [];
+                _eventListeners[selectId].push(cb);
+            });
+        }
     };
 
     document.addEventListener('click', function (e) {

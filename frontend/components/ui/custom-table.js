@@ -9,27 +9,26 @@
 
     window.getActiveTableFilters = () => activeFilters;
 
-    function applyTableFilters(table) {
+    function applyTableFilters() {
         window.dispatchEvent(new CustomEvent('tableFiltersChanged'));
     }
 
-    function openFilterMenu(triggerElement, table) {
-        closeOpenFilterMenu();
-        const key = triggerElement.dataset.key;
-        const headerCell = triggerElement.closest('th');
+    function _getFilterableValues(key) {
+        const source = window._tableFilteredData;
+        if (source && Array.isArray(source)) {
+            const values = new Set();
+            source.forEach(row => {
+                const val = row[key];
+                if (val != null && val !== '') {
+                    String(val).split('||').forEach(v => v && values.add(v));
+                }
+            });
+            return values;
+        }
 
-        let customValues = null;
-        try {
-            if (table.dataset.globalValues) {
-                customValues = JSON.parse(table.dataset.globalValues);
-            }
-        } catch (e) { }
-
-        let values;
-        if (customValues && customValues[key]) {
-            values = new Set(customValues[key]);
-        } else {
-            values = new Set();
+        const table = document.querySelector('#stateTable table');
+        const values = new Set();
+        if (table) {
             table.querySelectorAll('tbody tr').forEach(row => {
                 const cell = row.querySelector(`td[data-key="${key}"]`);
                 if (cell && cell.dataset.value) {
@@ -37,6 +36,15 @@
                 }
             });
         }
+        return values;
+    }
+
+    function openFilterMenu(triggerElement, table) {
+        closeOpenFilterMenu();
+        const key = triggerElement.dataset.key;
+        const headerCell = triggerElement.closest('th');
+
+        const values = _getFilterableValues(key);
         const sortedValues = [...values].sort((a, b) => a.localeCompare(b, 'pt'));
 
         const menu = document.createElement('div');
@@ -102,9 +110,13 @@
             activeFilters[key] = selectedValues;
             const allOptionsCount = checkboxes.length;
             const hasActiveFilter = selectedValues.length > 0 && selectedValues.length < allOptionsCount;
-            filterIcon.className = hasActiveFilter ? `bx bxs-filter-alt filter-icon text-[${CONFIG.primaryColor}]` : 'bx bx-filter filter-icon';
+            filterIcon.className = hasActiveFilter ? `bx bxs-filter-alt filter-icon text-slate-400` : 'bx bx-filter filter-icon';
+
+            triggerElement.classList.toggle('opacity-100', hasActiveFilter);
+            triggerElement.classList.toggle('opacity-0', !hasActiveFilter);
+
             if (!hasActiveFilter) delete activeFilters[key];
-            applyTableFilters(table);
+            applyTableFilters();
         };
 
         checkboxes.forEach(cb => cb.addEventListener('change', updateFilterState));
@@ -132,14 +144,11 @@
         });
     }
 
-    window.initializeTableFilters = function (tableId, config = {}) {
+    window.initializeTableFilters = function (tableId) {
         const tableContainer = document.getElementById(tableId);
         const table = tableContainer ? tableContainer.querySelector('table') : null;
         if (!table) return;
 
-        if (config && config.globalValues) {
-            table.dataset.globalValues = JSON.stringify(config.globalValues);
-        }
         if (table.dataset.filtersInitialized === 'true') return;
         table.dataset.filtersInitialized = 'true';
 
@@ -161,6 +170,10 @@
             table.querySelectorAll('.filter-icon').forEach(icon => {
                 icon.className = 'bx bx-filter filter-icon';
                 icon.style.color = '';
+            });
+            table.querySelectorAll('.table-filter-trigger').forEach(trigger => {
+                trigger.classList.add('opacity-0');
+                trigger.classList.remove('opacity-100');
             });
         });
     };
