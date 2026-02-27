@@ -317,13 +317,13 @@
                     <div
                         class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden border-2 border-[#003D5D]/10 flex flex-col max-h-[85vh]">
                         <div
-                            class="px-10 py-8 border-b-2 border-slate-50 flex items-start justify-between bg-slate-50/30 shrink-0">
+                            class="px-10 py-6 border-b-2 border-slate-50 flex items-start justify-between bg-slate-50/30 shrink-0">
                             <div>
                                 <h3
                                     class="text-2xl font-black text-[#003D5D] tracking-tight normal-case [letter-spacing:normal]">
                                     Decisão
                                     Técnica</h3>
-                                <p class="text-[11px] font-bold text-[#FCAE00] mt-1.5 normal-case [letter-spacing:normal]"
+                                <p class="text-[11px] font-bold text-[#FCAE00] mt-1 normal-case [letter-spacing:normal]"
                                     id="modalRppnLabel">
                                 </p>
                             </div>
@@ -335,57 +335,91 @@
                         <div
                             class="px-10 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent flex-1">
                             <div id="modalDetails"
-                                class="mb-8 grid grid-cols-2 gap-4 bg-slate-50 p-6 rounded-3xl border-2 border-slate-100">
+                                class="mb-4 grid grid-cols-2 gap-4 bg-slate-50 p-6 rounded-3xl border-2 border-slate-100/50">
                             </div>
 
-                            <p class="text-[11px] font-bold text-slate-400 normal-case [letter-spacing:normal] mb-6">
-                                Qual o destino desta
-                                reserva de saldo?
-                            </p>
-                            <div class="flex gap-6 mb-10">
-                                <label
-                                    class="flex-1 flex flex-col items-center gap-4 border-2 border-slate-100 rounded-3xl p-6 cursor-pointer hover:bg-emerald-50 hover:border-emerald-200 transition-all has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 group shadow-sm">
-                                    <input type="radio" name="modalAcao" value="manter" onchange="onAcaoChange()"
-                                        class="hidden">
-                                    <div
-                                        class="w-14 h-14 bg-white border-2 border-slate-100 rounded-2xl shadow-sm flex items-center justify-center text-emerald-600 group-has-[:checked]:bg-emerald-500 group-has-[:checked]:text-white group-has-[:checked]:border-emerald-500 transition-all">
-                                        <i class='bx bx-check-circle text-3xl'></i>
+                            <div id="pendingView"
+                                class="hidden mb-10 animate-in fade-in slide-in-from-top-4 duration-300">
+                                <div id="pendingViewContent"
+                                    class="bg-amber-50 border-2 border-amber-100 rounded-[2rem] p-8 relative overflow-hidden">
+                                    <div class="absolute top-0 right-0 p-6 opacity-40">
+                                        <i class='bx bx-time-five text-6xl text-amber-600'></i>
                                     </div>
-                                    <span
-                                        class="font-bold text-[13px] text-slate-500 normal-case [letter-spacing:normal] group-has-[:checked]:text-emerald-700">Manter
-                                        Saldo</span>
-                                </label>
-                                <label
-                                    class="flex-1 flex flex-col items-center gap-4 border-2 border-slate-100 rounded-3xl p-6 cursor-pointer hover:bg-rose-50 hover:border-rose-200 transition-all has-[:checked]:border-[#D61A21] has-[:checked]:bg-rose-50 group shadow-sm">
-                                    <input type="radio" name="modalAcao" value="cancelar" onchange="onAcaoChange()"
-                                        class="hidden">
-                                    <div
-                                        class="w-14 h-14 bg-white border-2 border-slate-100 rounded-2xl shadow-sm flex items-center justify-center text-[#D61A21] group-has-[:checked]:bg-[#D61A21] group-has-[:checked]:text-white group-has-[:checked]:border-[#D61A21] transition-all">
-                                        <i class='bx bx-trash text-3xl'></i>
+                                    <div class="relative z-10">
+                                        <div class="flex items-center gap-3 mb-6">
+                                            <span id="pendingBadgeAcao"
+                                                class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border-2"></span>
+                                            <span id="pendingBadgeStatus"
+                                                class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border-2"></span>
+                                        </div>
+                                        <p
+                                            class="text-[11px] font-black text-amber-600/60 uppercase tracking-wider mb-2">
+                                            Justificativa Enviada:</p>
+                                        <p id="pendingJustText"
+                                            class="text-sm font-bold text-slate-700 leading-relaxed"></p>
                                     </div>
-                                    <span
-                                        class="font-bold text-[13px] text-slate-500 normal-case [letter-spacing:normal] group-has-[:checked]:text-rose-700">Cancelar
-                                        Saldo</span>
-                                </label>
+                                </div>
                             </div>
 
-                            <div id="justAreaWrap"
-                                class="hidden mb-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                                <label
-                                    class="block text-[11px] font-bold text-slate-400 normal-case [letter-spacing:normal] mb-4">Justificativa
-                                    Detalhada
-                                    e Indispensável:</label>
-                                <textarea id="justText" rows="5"
-                                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 text-sm font-medium text-slate-700 resize-none focus:bg-white focus:ring-8 focus:ring-[#003D5D]/5 focus:border-[#003D5D] outline-none transition-all"
-                                    placeholder="Descreva detalhadamente o motivo técnico para a manutenção física deste empenho no exercício atual..."></textarea>
+                            <div id="decisionControls">
+                                <p
+                                    class="text-[11px] font-bold text-slate-400 normal-case [letter-spacing:normal] mb-6">
+                                    Qual o destino desta reserva de saldo?
+                                </p>
+                                <div class="flex gap-6 mb-10">
+                                    <label
+                                        class="flex-1 flex flex-col items-center gap-4 border-2 border-border rounded-3xl p-6 cursor-pointer hover:bg-emerald-50 hover:border-emerald-200 transition-all has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 group shadow-sm text-center">
+                                        <input type="radio" name="modalAcao" value="manter" onchange="onAcaoChange()"
+                                            class="hidden">
+                                        <div
+                                            class="w-14 h-14 bg-white border-2 border-slate-200 rounded-2xl shadow-sm flex items-center justify-center text-emerald-600 group-has-[:checked]:bg-emerald-500 group-has-[:checked]:text-white group-has-[:checked]:border-emerald-500 transition-all">
+                                            <i class='bx bx-check-circle text-3xl'></i>
+                                        </div>
+                                        <span
+                                            class="font-bold text-[13px] text-slate-500 normal-case [letter-spacing:normal] group-has-[:checked]:text-emerald-700">Manter
+                                            Saldo</span>
+                                    </label>
+                                    <label
+                                        class="flex-1 flex flex-col items-center gap-4 border-2 border-border rounded-3xl p-6 cursor-pointer hover:bg-rose-50 hover:border-rose-200 transition-all has-[:checked]:border-[#D61A21] has-[:checked]:bg-rose-50 group shadow-sm text-center">
+                                        <input type="radio" name="modalAcao" value="cancelar" onchange="onAcaoChange()"
+                                            class="hidden">
+                                        <div
+                                            class="w-14 h-14 bg-white border-2 border-slate-200 rounded-2xl shadow-sm flex items-center justify-center text-[#D61A21] group-has-[:checked]:bg-[#D61A21] group-has-[:checked]:text-white group-has-[:checked]:border-[#D61A21] transition-all">
+                                            <i class='bx bx-trash text-3xl'></i>
+                                        </div>
+                                        <span
+                                            class="font-bold text-[13px] text-slate-500 normal-case [letter-spacing:normal] group-has-[:checked]:text-rose-700">Cancelar
+                                            Saldo</span>
+                                    </label>
+                                </div>
+
+                                <div id="justAreaWrap"
+                                    class="hidden mb-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                                    <label
+                                        class="block text-[11px] font-bold text-slate-400 normal-case [letter-spacing:normal] mb-4 uppercase tracking-wider">Justificativa
+                                        Técnica:</label>
+                                    <textarea id="justText" rows="5"
+                                        class="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 text-sm font-medium text-slate-700 resize-none focus:bg-white focus:ring-8 focus:ring-[#003D5D]/5 focus:border-[#003D5D] outline-none transition-all"
+                                        placeholder="Descreva detalhadamente o motivo técnico..."></textarea>
+                                </div>
                             </div>
 
                             <div id="modalAlert"
                                 class="hidden mt-6 px-6 py-4 rounded-2xl text-[11px] font-bold normal-case [letter-spacing:normal] border-2">
                             </div>
+
+                            <div id="historySection" class="mt-6 hidden pb-4">
+                                <h4
+                                    class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-8 flex items-center gap-2">
+                                    <i class='bx bx-history text-lg'></i>
+                                    Histórico de Registros
+                                </h4>
+                                <div id="historyList" class="space-y-6"></div>
+                            </div>
                         </div>
 
-                        <div class="px-10 py-8 border-t-2 border-slate-50 flex gap-4 bg-slate-50/30 shrink-0">
+                        <div id="modalFooter"
+                            class="px-10 py-8 border-t-2 border-slate-50 flex gap-4 bg-slate-50/30 shrink-0">
                             <button onclick="closeModal()"
                                 class="flex-1 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] text-[11px] font-bold text-slate-500 normal-case [letter-spacing:normal] hover:bg-slate-100 transition-all">Cancelar</button>
                             <button id="btnConfirmar" onclick="handleConfirm()"
@@ -393,6 +427,25 @@
                                 Registrar Decisão
                             </button>
                         </div>
+                    </div>
+                </div>
+
+                <div id="modalSuccess"
+                    class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] hidden p-4 transition-all">
+                    <div
+                        class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden border-2 border-emerald-500/10 flex flex-col p-10 text-center">
+                        <div
+                            class="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-3xl flex items-center justify-center mx-auto mb-6 border-2 border-emerald-100 shadow-sm">
+                            <i class='bx bx-check-double text-5xl'></i>
+                        </div>
+                        <h3 class="text-2xl font-black text-[#003D5D] tracking-tight mb-2">Sucesso!</h3>
+                        <p class="text-slate-500 font-medium text-sm mb-8 leading-relaxed">
+                            A decisão foi registrada com sucesso no sistema.
+                        </p>
+                        <button onclick="handleReloadAfterSuccess()"
+                            class="w-full bg-[#003D5D] py-5 rounded-[1.5rem] text-[11px] font-bold text-white normal-case [letter-spacing:normal] tracking-wider hover:bg-slate-800 shadow-xl shadow-[#003D5D]/20 transition-all">
+                            Recarregar Dados
+                        </button>
                     </div>
                 </div>
 

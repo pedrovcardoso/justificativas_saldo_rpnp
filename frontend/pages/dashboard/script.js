@@ -11,6 +11,7 @@ if (![10, 25, 50].includes(itemsPerPage)) itemsPerPage = 10;
 const CACHE_KEY = "rppn_data_cache";
 const PANEL_SELECT_IDS = ["filterUE", "filterPrograma", "filterElemento", "filterDecisao", "filterAvaliacao", "filterStatusProcesso"];
 let tableApiData = []; // Store API data for the current page
+let statusHistory = []; // Store all status history
 
 let descriptiveData = {
     unidades: [],
@@ -97,9 +98,9 @@ async function loadData() {
     try {
         const statusRes = await checkStatus(session.user, session.token);
         if (statusRes.ok && statusRes.data?.success) {
-            const statusList = statusRes.data.data.status || [];
+            statusHistory = statusRes.data.data.status || [];
             const latestMap = {};
-            statusList.forEach(s => {
+            statusHistory.forEach(s => {
                 if (!latestMap[s.rppn] || new Date(s.data_criacao) > new Date(latestMap[s.rppn].data_criacao)) {
                     latestMap[s.rppn] = s;
                 }
@@ -504,7 +505,7 @@ function getRowStatusInfo(row) {
         else if (apiData?.status?.toLowerCase() === "rejeitado") status = "Retorno";
     }
 
-    return { decisao, avaliacao, status, isLoading };
+    return { decisao, avaliacao, status, isLoading, fullData: apiData };
 }
 
 function renderRows(rows) {
@@ -667,20 +668,180 @@ function openModal(rppn, row) {
             { label: "Programa", value: `${row["Programa - Descrição"]} (${row["Programa - Código"]})` },
             { label: "Elemento Item", value: `${row["Elemento Item - Descrição"]} (${row["Elemento Item - Código"]})` },
             { label: "Saldo RPPN", value: formatMoeda(row["Saldo Restos a Pagar Não Processado"]), highlight: true },
-            { label: "Inscrito", value: formatMoeda(row["Valor Inscrito Não Processado"]) },
-            { label: "Pago", value: formatMoeda(row["Valor Pago Não Processado"]) },
-            { label: "Cancelado", value: formatMoeda(row["Valor Cancelado Não Processado"]) }
+            {
+                label: "Valores",
+                isRow: true,
+                values: [
+                    { label: "Inscrito", value: formatMoeda(row["Valor Inscrito Não Processado"]) },
+                    { label: "Pago", value: formatMoeda(row["Valor Pago Não Processado"]) },
+                    { label: "Cancelado", value: formatMoeda(row["Valor Cancelado Não Processado"]) }
+                ]
+            }
         ];
 
         showDetails.forEach(d => {
             const div = document.createElement("div");
-            div.className = d.highlight ? "col-span-2 mt-2 p-4 bg-[#003D5D]/5 rounded-2xl border-2 border-[#003D5D]/10" : "flex flex-col gap-1";
-            div.innerHTML = `
-                <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">${d.label}</span>
-                <span class="${d.highlight ? 'text-lg font-black text-[#003D5D]' : 'text-[12px] font-bold text-slate-600'}">${d.value}</span>
-            `;
+            if (d.highlight) {
+                div.className = "col-span-2 mt-2 p-4 bg-[#003D5D]/5 rounded-2xl border-2 border-[#003D5D]/10";
+                div.innerHTML = `
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">${d.label}</span>
+                    <span class="text-lg font-black text-[#003D5D]">${d.value}</span>
+                `;
+            } else if (d.isRow) {
+                div.className = "col-span-2 grid grid-cols-3 gap-4 border-t-2 border-slate-50 pt-4 mt-2";
+                div.innerHTML = d.values.map(v => `
+                    <div class="flex flex-col gap-1">
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">${v.label}</span>
+                        <span class="text-[12px] font-bold text-slate-600">${v.value}</span>
+                    </div>
+                `).join('');
+            } else {
+                div.className = "flex flex-col gap-1";
+                div.innerHTML = `
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">${d.label}</span>
+                    <span class="text-[12px] font-bold text-slate-600">${d.value}</span>
+                `;
+            }
             detailsWrap.appendChild(div);
         });
+
+        // History section logic
+        const historySection = document.getElementById("historySection");
+        const historyList = document.getElementById("historyList");
+        const historyData = statusHistory
+            .filter(s => s.rppn === rppn)
+            .sort((a, b) => new Date(b.data_criacao) - new Date(a.data_criacao));
+
+        if (historyData.length > 0) {
+            historySection.classList.remove("hidden");
+            historyList.innerHTML = historyData.map(h => {
+                const dataCriacao = new Date(h.data_criacao).toLocaleString('pt-BR');
+                const dataAvaliacao = h.data_avaliacao ? new Date(h.data_avaliacao).toLocaleString('pt-BR') : null;
+                const statusLower = (h.status || 'pendente').toLowerCase();
+                const acaoLower = (h.acao || '').toLowerCase();
+
+                let badgeStatusCls = 'badge-color-amber';
+                if (statusLower === 'aceito') badgeStatusCls = 'badge-color-emerald';
+                else if (statusLower === 'rejeitado') badgeStatusCls = 'badge-color-rose';
+
+                return `
+                <div class="relative pl-6 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-slate-100 before:rounded-full">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+                        <!-- Decision Block -->
+                        <div class="bg-white p-5 rounded-[1.5rem] border-2 border-slate-200 shadow-sm relative">
+                            <div class="absolute -left-[29px] top-6 w-3 h-3 rounded-full bg-white border-2 border-[#003D5D]"></div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="px-2 py-0.5 bg-[#003D5D]/5 text-[#003D5D] text-[9px] font-black rounded-md uppercase tracking-wider">Decisão</span>
+                                <span class="text-[9px] font-bold text-slate-400">${dataCriacao}</span>
+                            </div>
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase border-2 badge-color-${acaoLower === 'manter' ? 'sky' : 'rose'}">
+                                    ${h.acao}
+                                </span>
+                                <span class="text-[10px] font-black text-slate-700 truncate" title="${h.usuario_nome || 'Sistema'}">${h.usuario_nome || 'Sistema'}</span>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-xl border-border">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Justificativa:</p>
+                                <p class="text-[11px] font-medium text-slate-600 leading-relaxed italic line-clamp-2">"${h.justificativa || 'Sem justificativa.'}"</p>
+                            </div>
+                        </div>
+
+                        <!-- Evaluation Block -->
+                        <div class="bg-white p-5 rounded-[1.5rem] border-2 border-slate-200 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="px-2 py-0.5 bg-slate-50 text-slate-500 text-[9px] font-black rounded-md uppercase tracking-wider">Avaliação</span>
+                                    <span class="text-[9px] font-bold text-slate-400">${dataAvaliacao || 'Aguardando'}</span>
+                                </div>
+                                <div class="flex items-center gap-2 mb-3">
+                                    <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase border-2 ${badgeStatusCls}">
+                                        ${h.status || 'pendente'}
+                                    </span>
+                                    <span class="text-[10px] font-black text-slate-700 truncate" title="${h.user_avaliador || '—'}">${h.user_avaliador || '—'}</span>
+                                </div>
+                            </div>
+                            ${h.motivo_rejeicao ? `
+                            <div class="mt-2 p-3 bg-slate-50 rounded-xl border-border">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Motivo:</p>
+                                <p class="text-[11px] font-bold text-slate-600 leading-relaxed line-clamp-2">${h.motivo_rejeicao}</p>
+                            </div>
+                            ` : `
+                            <div class="mt-2 p-3 bg-slate-50/50 rounded-xl border-dashed border-border border-2 flex items-center justify-center py-2">
+                                <span class="text-[9px] font-bold text-slate-300 italic">Sem observações</span>
+                            </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        } else {
+            historySection.classList.add("hidden");
+        }
+
+        // Logic for Pending or Accepted Decisions (Read-Only)
+        const statusInfo = getRowStatusInfo(row);
+        const statusLower = statusInfo.avaliacao.toLowerCase();
+
+        const btnConfirmar = document.getElementById("btnConfirmar");
+        const modalFooter = document.getElementById("modalFooter");
+        const pendingView = document.getElementById("pendingView");
+        const decisionControls = document.getElementById("decisionControls");
+        const modalAlert = document.getElementById("modalAlert");
+
+        if ((statusLower === "pendente" || statusLower === "aceito") && statusInfo.fullData) {
+            // SHOW READ-ONLY VIEW
+            if (modalFooter) modalFooter.classList.add("hidden");
+            decisionControls.classList.add("hidden");
+            modalAlert.classList.add("hidden");
+
+            pendingView.classList.remove("hidden");
+            document.getElementById("pendingJustText").textContent = statusInfo.fullData.justificativa || "Sem justificativa detalhada.";
+
+            const badgeAcao = document.getElementById("pendingBadgeAcao");
+            const badgeStatus = document.getElementById("pendingBadgeStatus");
+            const iconWrap = pendingView.querySelector('.bx');
+            const acaoLower = (statusInfo.fullData.acao || "").toLowerCase();
+
+            badgeAcao.textContent = statusInfo.fullData.acao;
+            badgeAcao.className = `px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border-2 badge-color-${acaoLower === 'manter' ? 'sky' : 'rose'}`;
+
+            if (statusLower === "aceito") {
+                badgeStatus.textContent = "Aceito";
+                badgeStatus.className = "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border-2 badge-color-emerald";
+                pendingView.firstElementChild.className = "bg-emerald-50 border-2 border-emerald-100 rounded-[2rem] p-8 relative overflow-hidden";
+
+                // Refine label and icon for stronger green
+                const labelSent = pendingView.querySelector('p.text-amber-600\\/60');
+                if (labelSent) {
+                    labelSent.className = "text-[11px] font-black text-emerald-700 uppercase tracking-wider mb-2";
+                }
+
+                if (iconWrap) {
+                    iconWrap.className = 'bx bx-check-double text-6xl text-emerald-600';
+                }
+            } else {
+                badgeStatus.textContent = "Em Análise";
+                badgeStatus.className = "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border-2 bg-amber-100 text-amber-700 border-amber-200";
+                pendingView.firstElementChild.className = "bg-amber-50 border-2 border-amber-100 rounded-[2rem] p-8 relative overflow-hidden";
+
+                // Standard label for pending
+                const labelSent = pendingView.querySelector('p.text-emerald-700');
+                if (labelSent) {
+                    labelSent.className = "text-[11px] font-black text-amber-600/60 uppercase tracking-wider mb-2";
+                }
+
+                if (iconWrap) {
+                    iconWrap.className = 'bx bx-time-five text-6xl text-amber-600';
+                }
+            }
+        } else {
+            // SHOW REGISTRATION CONTROLS
+            if (modalFooter) modalFooter.classList.remove("hidden");
+            btnConfirmar.classList.remove("hidden", "opacity-50", "cursor-not-allowed");
+            decisionControls.classList.remove("hidden");
+            pendingView.classList.add("hidden");
+        }
     }
 
     document.querySelectorAll("input[name=modalAcao]").forEach(r => r.checked = false);
@@ -708,30 +869,47 @@ function showModalAlert(msg, type = "error") {
 
 async function handleConfirm() {
     const acao = document.querySelector("input[name=modalAcao]:checked")?.value;
-    if (!acao) { showModalAlert("Selecione uma option para continuar."); return; }
+    if (!acao) { showModalAlert("Selecione uma opção para continuar."); return; }
 
     const just = document.getElementById("justText").value.trim();
     if (acao === "manter" && !just) { showModalAlert("Campo obrigatório: justificativa técnica para manutenção."); return; }
 
     const btn = document.getElementById("btnConfirmar");
+    const modalJust = document.getElementById("modalJust");
+    const inputs = modalJust.querySelectorAll("input, textarea, button");
+
     btn.disabled = true;
     btn.innerHTML = `<i class='bx bx-loader-alt animate-spin mr-2'></i> Processando…`;
 
+    // Disable all inputs/buttons during loading
+    inputs.forEach(el => el.disabled = true);
+
     const res = await justificar(session.user, session.token, currentRppn, acao, just);
 
-    // The API now returns an array of success/error objects
     const result = Array.isArray(res.data) ? res.data[0] : res.data;
     const isSuccess = res.ok && result?.success;
 
     if (isSuccess) {
-        closeModal();
-        await loadData();
+        document.getElementById("modalJust").classList.add("hidden");
+        document.getElementById("modalSuccess").classList.remove("hidden");
     } else {
         btn.disabled = false;
         btn.textContent = "Registrar Decisão";
+        inputs.forEach(el => {
+            if (el.id !== "btnConfirmar") el.disabled = false;
+        });
+
         const errorMsg = result?.error || res.data?.error || "Erro na comunicação com o servidor.";
         showModalAlert(errorMsg);
+
+        // Scroll to error message
+        const modalAlert = document.getElementById("modalAlert");
+        modalAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+}
+
+function handleReloadAfterSuccess() {
+    location.reload();
 }
 
 if (session) {
