@@ -58,8 +58,8 @@ async function getData(user, token) {
     return apiCall(API_URLS.getData, { endpoint: "get_data", user, token });
 }
 
-async function checkStatus(user, token, arr_rppn) {
-    return apiCall(API_URLS.getData, { endpoint: "check_status", user, token, arr_rppn });
+async function checkStatus(user, token) {
+    return apiCall(API_URLS.getData, { endpoint: "check_status", user, token });
 }
 
 if (typeof module !== "undefined") {

@@ -212,12 +212,6 @@ Este fluxo é responsável por obter dados no banco.
         },
         "endpoint": {
             "type": "string"
-        },
-        "arr_rppn": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
         }
     },
     "required": [
@@ -242,6 +236,6 @@ Obtém dados da unidade, em formato CSV separado por ponto e vírgula (`;`).
 
 Verifica o status de uma lista de restos a pagar.
 
-*   **Parâmetros Necessários no Corpo da Requisição:** `user`, `token`, `endpoint`, `arr_rppn`
+*   **Parâmetros Necessários no Corpo da Requisição:** `user`, `token`, `endpoint`
 *   **Respostas:**
     *   `200 OK`: `{ "success": true, "message": "Dados validados com sucesso.", "data": { "status": [{ "id_justificativa": "...", "rppn": "...", "user_justificativa": "...", "user_avaliador": "...", "acao": "...", "justificativa": "...", "status": "...", "motivo_rejeicao": "...", "data_criacao": "yyyy-mm-ddThh:mm:ssZ", "data_avaliacao": "yyyy-mm-ddThh:mm:ssZ" }], "role": "...", "uo": "..." } }`

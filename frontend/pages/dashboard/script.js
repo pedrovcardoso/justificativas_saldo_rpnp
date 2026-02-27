@@ -92,6 +92,24 @@ async function loadData() {
     }
 
     rawData = parseCSV(csvRaw);
+
+    // Fetch all statuses once
+    try {
+        const statusRes = await checkStatus(session.user, session.token);
+        if (statusRes.ok && statusRes.data?.success) {
+            const statusList = statusRes.data.data.status || [];
+            const latestMap = {};
+            statusList.forEach(s => {
+                if (!latestMap[s.rppn] || new Date(s.data_criacao) > new Date(latestMap[s.rppn].data_criacao)) {
+                    latestMap[s.rppn] = s;
+                }
+            });
+            tableApiData = Object.values(latestMap);
+        }
+    } catch (e) {
+        console.error("Erro ao carregar status iniciais:", e);
+    }
+
     enrichRows(rawData);
 
     if (rawData.length > 0) {
@@ -387,10 +405,10 @@ function enrichRows(rows) {
         }
         row["Elemento Item - Descrição"] = elemDesc;
 
-        // Materialize virtual columns for filtering
-        row["Decisão"] = "";
-        row["Avaliação"] = "";
-        row["Status"] = "Pendente";
+        const info = getRowStatusInfo(row);
+        row["Decisão"] = info.decisao;
+        row["Avaliação"] = info.avaliacao;
+        row["Status"] = info.status;
     });
 }
 function updateCards(rows) {
@@ -445,42 +463,9 @@ async function renderCurrentPage() {
     const start = (currentPage - 1) * itemsPerPage;
     const rowsToDisplay = tableFilteredData.slice(start, start + itemsPerPage);
 
-    // Clear previous page data to trigger skeletons
-    tableApiData = [];
-
     renderRows(rowsToDisplay);
     updatePaginationUI();
     afterTableRender();
-
-    const rppnsToFetch = rowsToDisplay.map(r => getRppnId(r));
-
-    if (rppnsToFetch.length > 0) {
-        try {
-            const res = await checkStatus(session.user, session.token, rppnsToFetch);
-            if (res.ok && res.data?.success) {
-                const statusList = res.data.data.status || [];
-                const latestMap = {};
-                statusList.forEach(s => {
-                    if (!latestMap[s.rppn] || new Date(s.data_criacao) > new Date(latestMap[s.rppn].data_criacao)) {
-                        latestMap[s.rppn] = s;
-                    }
-                });
-                tableApiData = Object.values(latestMap);
-
-                // Update materialized columns in ALL rows (for global filtering)
-                rowsToDisplay.forEach(row => {
-                    const info = getRowStatusInfo(row);
-                    row["Decisão"] = info.decisao;
-                    row["Avaliação"] = info.avaliacao;
-                    row["Status"] = info.status;
-                });
-
-                renderRows(rowsToDisplay);
-            }
-        } catch (e) {
-            console.error("Erro ao buscar status:", e);
-        }
-    }
 }
 
 function getRppnId(row) {
