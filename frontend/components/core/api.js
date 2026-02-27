@@ -43,14 +43,17 @@ async function logout(user, token) {
 async function justificar(user, token, rppn, acao, justificativa) {
     return apiCall(API_URLS.saveJustificativa, {
         endpoint: "justificar",
-        user, token, rppn, acao, justificativa,
+        user, token, acao, justificativa,
+        dados: [{ rppn }]
     });
 }
 
 async function avaliarStatus(user, token, rppn, id, status, motivo_rejeição = "") {
     return apiCall(API_URLS.saveJustificativa, {
         endpoint: "avaliar_status",
-        user, token, rppn, id, status, motivo_rejeição,
+        user, token, rppn, status,
+        motivo_rejeicao: motivo_rejeição,
+        dados: [{ rppn, id }]
     });
 }
 

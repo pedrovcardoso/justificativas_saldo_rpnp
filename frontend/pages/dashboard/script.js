@@ -499,8 +499,7 @@ function getRowStatusInfo(row) {
 
     let status = "Pendente";
     if (decisao) {
-        if (!apiData?.status) status = "Pendente";
-        else if (apiData?.status?.toLowerCase() === "pendente") status = "Em análise";
+        if (!apiData?.status || apiData?.status?.toLowerCase() === "pendente") status = "Em análise";
         else if (apiData?.status?.toLowerCase() === "aceito") status = "Concluído";
         else if (apiData?.status?.toLowerCase() === "rejeitado") status = "Retorno";
     }
@@ -551,6 +550,8 @@ function renderRows(rows) {
                     else if (lowerVal === "em análise") colorKey = "orange";
                     else if (lowerVal === "concluído" || lowerVal === "aceito") colorKey = "emerald";
                     else if (lowerVal === "retorno" || lowerVal === "rejeitado") colorKey = "rose";
+                    else if (lowerVal === "manter") colorKey = "sky";
+                    else if (lowerVal === "cancelar") colorKey = "rose";
 
                     contentSpan.innerHTML = val ? `
                         <span class="px-3 py-1.5 rounded-[0.75rem] text-[10px] font-bold uppercase inline-block border-2 badge-color-${colorKey}">
@@ -718,13 +719,18 @@ async function handleConfirm() {
 
     const res = await justificar(session.user, session.token, currentRppn, acao, just);
 
-    if (res.ok && res.data?.success) {
+    // The API now returns an array of success/error objects
+    const result = Array.isArray(res.data) ? res.data[0] : res.data;
+    const isSuccess = res.ok && result?.success;
+
+    if (isSuccess) {
         closeModal();
         await loadData();
     } else {
         btn.disabled = false;
         btn.textContent = "Registrar Decisão";
-        showModalAlert(res.data?.error || "Erro na comunicação com o servidor.");
+        const errorMsg = result?.error || res.data?.error || "Erro na comunicação com o servidor.";
+        showModalAlert(errorMsg);
     }
 }
 

@@ -104,6 +104,12 @@ body {
     border-color: #e2e8f0 !important;
 }
 
+.badge-color-sky {
+    background-color: #f0f9ff !important;
+    color: #0369a1 !important;
+    border-color: #bae6fd !important;
+}
+
 /* Skeleton Loading */
 .skeleton-loading {
     height: 1.5rem;

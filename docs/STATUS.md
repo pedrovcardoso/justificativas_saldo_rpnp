@@ -4,27 +4,37 @@ Esta seção descreve os estados possíveis para cada RPPN (Restos a Pagar Não 
 
 ## Opções de Filtro (Painel de Filtros)
 
-As opções de filtro para as colunas virtuais são fixas, garantindo que o painel esteja sempre completo:
+As opções de filtro para as colunas virtuais são fixas:
 
 - **Decisão**: `Manter`, `Cancelar`, `(em branco)`
 - **Avaliação**: `Pendente`, `Aceito`, `Rejeitado`, `(em branco)`
 - **Status**: `Pendente`, `Em análise`, `Concluído`, `Retorno`
 
-## Lógica de Status e Exibição
+## Cores das Badges
 
-A exibição das colunas segue as regras de capitalização (Sentence Case) abaixo:
+| Valor | Cor | Significado |
+| :--- | :--- | :--- |
+| **Manter** | Azul (`sky`) | Decisão de manter o saldo registrada. |
+| **Cancelar** | Vermelho (`rose`) | Decisão de cancelar o saldo registrada. |
+| **Pendente** | Amarelo (`amber`) | Aguardando ação ou avaliação inicial. |
+| **Em análise** | Laranja (`orange`) | Decisão registrada, aguardando aprovação técnica. |
+| **Concluído** / **Aceito** | Verde (`emerald`) | Processo aprovado tecnicamente. |
+| **Retorno** / **Rejeitado** | Vermelho (`rose`) | Registro rejeitado ou necessita correção. |
 
-| Cenário | Decisão (Coluna) | Avaliação (Coluna) | Status (Coluna) | Badge Cor | Descrição |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Sem Registro / Sem Ação** | (em branco) | (em branco) | **Pendente** | Amarelo (`amber`) | Aguardando registro de decisão inicial. |
-| **Decisão mas sem Status** | `Manter` / `Cancelar` | `Pendente` | **Pendente** | Amarelo (`amber`) | Decisão registrada, mas status da avaliação ainda nulo. |
-| **Decisão e Status Pendente** | `Manter` / `Cancelar` | `Pendente` | **Em análise** | Laranja (`orange`) | Avaliação marcada como pendente pelo analista. |
-| **Avaliado como Aceito** | `Manter` / `Cancelar` | `Aceito` | **Concluído** | Verde (`emerald`) | Processo finalizado com aprovação técnica. |
-| **Avaliado como Rejeitado** | `Manter` / `Cancelar` | `Rejeitado` | **Retorno** | Vermelho (`rose`) | Necessita de revisão após rejeição técnica. |
+## Lógica de Status (Coluna Status)
+
+O status final é determinado conforme a presença de Decisão e o estado da Avaliação:
+
+| Cenário | Decisão | Avaliação | Status Final | Cor |
+| :--- | :--- | :--- | :--- | :--- |
+| **Sem Ação** | (vazio) | (vazio) | **Pendente** | Amarelo |
+| **Aguardando** | `Manter` / `Cancelar` | (vazio) | **Em análise** | Laranja |
+| **Em Revisão** | `Manter` / `Cancelar` | `Pendente` | **Em análise** | Laranja |
+| **Aprovado** | `Manter` / `Cancelar` | `Aceito` | **Concluído** | Verde |
+| **Reprovado** | `Manter` / `Cancelar` | `Rejeitado` | **Retorno** | Vermelho |
 
 ## Observações Técnicas
 
-- **Opção "(em branco)"**: Nos filtros de Decisão e Avaliação, a opção `(em branco)` seleciona registros que não possuem valor preenchido para aquele campo.
-- **Capitalização**: Todos os termos de status agora usam apenas a primeira letra maiúscula (e.g., "Em análise").
-- **Materialização**: Os campos **Decisão**, **Avaliação** e **Status** são injetados nos objetos de dados para possibilitar o uso dos filtros de cabeçalho.
-- **Sincronização**: Dados consultados em tempo real (sem cache), garantindo visibilidade imediata de alterações.
+- **Sentence Case**: Todos os termos usam apenas a primeira letra maiúscula (ex: "Em análise").
+- **Materialização**: Os campos virtuais são injetados nos objetos para permitir filtros de cabeçalho.
+- **Sincronização**: Realizada em tempo real via `check_status` no carregamento dos dados.

@@ -138,28 +138,33 @@ Este fluxo permite registrar e avaliar justificativas.
             "type": "string",
             "description": "ID da justificativa."
         },
-        "acao": {
-            "type": "string",
-            "description": "Ação a ser realizada na justificativa ('manter' ou 'cancelar')."
-        },
         "justificativa": {
             "type": "string",
             "description": "Texto da justificativa."
         },
         "status": {
             "type": "string",
-            "description": "Status da justificativa (ex: 'aprovado', 'rejeitado')."
+            "description": "Status da justificativa (ex: 'Aceito', 'Rejeitado')."
         },
-        "motivo_rejeição": {
+        "motivo_rejeicao": {
             "type": "string",
             "description": "Motivo da rejeição da justificativa, se aplicável."
+        },
+        "dados": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "rppn": { "type": "string" },
+                    "id": { "type": "string" }
+                }
+            }
         }
     },
     "required": [
         "user",
         "token",
-        "endpoint",
-        "rppn"
+        "endpoint"
     ]
 }
 ```
@@ -168,25 +173,20 @@ Este fluxo permite registrar e avaliar justificativas.
 
 ##### `justificar`
 
-Salva uma nova justificativa ou atualiza uma existente.
+Salva uma nova justificativa ou atualiza uma existente (em lote).
 
-*   **Parâmetros Necessários no Corpo da Requisição:** `user`, `token`, `endpoint`, `rppn`, `acao`, `justificativa`
-*   **Respostas:**
-    *   `400 Bad Request`: `{ "success": false, "error": "acao inválida ou não informada." }`
-    *   `409 Conflict`: `{ "success": false, "error": "Outra justificativa em aberto." }`
-    *   `200 OK`: `{ "success": true, "message": "Dados salvos com sucesso.", "data": { "id": "..." } }`
+*   **Parâmetros Necessários no Corpo da Requisição:** `user`, `token`, `endpoint`, `acao`, `justificativa`, `dados` (lista de `rppn`)
+*   **Respostas (Array):**
+    *   `200 OK`: `[{ "success": true, "statusCode": "200", "message": "Dados salvos com sucesso.", "data": { "id": "..." } }]`
+    *   `409 Conflict`: `[{ "success": false, "statusCode": "409", "error": "Outra justificativa em aberto.", "data": { "rppn": "..." } }]`
 
 ##### `avaliar_status`
 
-Atribui status para uma justificativa existente.
+Atribui status para justificativas existentes (em lote).
 
-*   **Parâmetros Necessários no Corpo da Requisição:** `user`, `token`, `endpoint`, `rppn`, `id`, `status`, `motivo_rejeição`
-*   **Respostas:**
-    *   `401 Unauthorized`: `{ "success": false, "error": "Usuário não autorizado." }`
-    *   `400 Bad Request`: `{ "success": false, "error": "ID ou status não informados ou inválidos." }`
-    *   `401 Unauthorized`: `{ "success": false, "error": "id não localizado." }`
-    *   `409 Conflict`: `{ "success": false, "error": "Status já registrado." }`
-    *   `200 OK`: `{ "success": true, "message": "Dados salvos com sucesso." }`
+*   **Parâmetros Necessários no Corpo da Requisição:** `user`, `token`, `endpoint`, `rppn`, `status`, `motivo_rejeicao`, `dados` (lista de `rppn` e `id`)
+*   **Respostas (Array):**
+    *   `200 OK`: `[{ "success": true, "statusCode": "200", "message": "Dados salvos com sucesso." }]`
 
 ---
 
