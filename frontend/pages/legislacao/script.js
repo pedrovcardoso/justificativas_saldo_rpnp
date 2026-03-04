@@ -23,8 +23,19 @@ function normalize(text) {
 async function init() {
     ["filterTipo", "filterEsfera", "filterStatus", "filterAno"].forEach(id => renderSkeletonSelect(id));
     try {
-        const res = await fetch("../../assets/json/legislacao.json");
-        allLegislacoes = await res.json();
+        const res = await getLegislacao(session?.user || "", session?.token || "");
+        if (res.ok && res.data) {
+            const arr = res.data.data || [];
+            allLegislacoes = arr.map(l => {
+                let tags = l.tags;
+                if (typeof tags === 'string') {
+                    try { tags = JSON.parse(tags); } catch (e) { tags = []; }
+                }
+                return { ...l, tags: tags || [] };
+            });
+        } else {
+            throw new Error((res.data && res.data.error) || "Falha ao carregar legislação");
+        }
 
         setupFilters();
         renderLeg(allLegislacoes);

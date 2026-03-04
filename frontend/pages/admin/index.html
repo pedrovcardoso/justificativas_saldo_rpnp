@@ -171,7 +171,13 @@
                                 Nova Legislação
                             </button>
                         </div>
-                        <div class="overflow-x-auto">
+                        <div id="legStateLoading"
+                            class="flex flex-col items-center justify-center py-32 text-slate-400">
+                            <i class='bx bx-loader-alt text-5xl animate-spin mb-6 text-[#003D5D]'></i>
+                            <p class="font-bold text-slate-600 text-sm normal-case [letter-spacing:normal]">Carregando
+                                legislação…</p>
+                        </div>
+                        <div id="legTable" class="hidden overflow-x-auto">
                             <table class="min-w-full divide-y-2 divide-slate-100">
                                 <thead class="bg-slate-50/80">
                                     <tr>
@@ -190,6 +196,16 @@
                                 </thead>
                                 <tbody id="legTableBody" class="divide-y-2 divide-slate-50"></tbody>
                             </table>
+                        </div>
+                        <div id="legEmpty"
+                            class="hidden flex flex-col items-center justify-center py-32 text-slate-400 text-center px-8">
+                            <div
+                                class="w-16 h-16 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-center mb-6">
+                                <i class='bx bx-search text-3xl text-slate-300'></i>
+                            </div>
+                            <h4 class="text-lg font-black text-slate-700 mb-2">Nenhum registro encontrado</h4>
+                            <p class="text-[13px] font-medium text-slate-500">A base legal está vazia ou não pôde ser
+                                carregada.</p>
                         </div>
                     </div>
                 </div>

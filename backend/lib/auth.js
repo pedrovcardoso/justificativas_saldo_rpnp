@@ -18,7 +18,8 @@ async function validateSession(user, token) {
 
 export async function requireAuth(request) {
     let user, token, body = {};
-    const contentType = request.headers.get('content-type') || '';
+    const headers = request.headers || new Map();
+    const contentType = (typeof headers.get === 'function' ? headers.get('content-type') : headers['content-type']) || '';
 
     try {
         if (contentType.includes('application/json')) {
@@ -33,6 +34,13 @@ export async function requireAuth(request) {
                 token = formData.get('token');
                 body = formData;
             }
+        }
+
+        // Se não encontrou no body (ou não é JSON/FormData), verifica no header (authorization) ou query string
+        if (!user || !token) {
+            const url = new URL(request.url);
+            user = user || url.searchParams.get('user');
+            token = token || url.searchParams.get('token');
         }
     } catch (e) { }
 

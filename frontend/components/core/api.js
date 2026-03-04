@@ -16,11 +16,13 @@ async function apiCall(url, body, method = "POST", isFormData = false) {
     try {
         const options = {
             method: method,
-            body: isFormData ? body : JSON.stringify(body),
         };
 
-        if (!isFormData && body) {
-            options.headers = { "Content-Type": "application/json" };
+        if (method !== "GET" && method !== "HEAD" && body) {
+            options.body = isFormData ? body : JSON.stringify(body);
+            if (!isFormData) {
+                options.headers = { "Content-Type": "application/json" };
+            }
         }
 
         const response = await fetch(url, options);

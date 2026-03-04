@@ -153,17 +153,48 @@ async function loadStats() {
 }
 
 async function loadLegislacao() {
+    const loading = document.getElementById("legStateLoading");
+    const table = document.getElementById("legTable");
+    const empty = document.getElementById("legEmpty");
+
+    if (loading) loading.classList.remove("hidden");
+    if (table) table.classList.add("hidden");
+    if (empty) empty.classList.add("hidden");
+
     try {
-        const res = await fetch("../../assets/json/legislacao.json");
-        legData = await res.json();
-        renderLegTable();
+        const res = await getLegislacao(session.user, session.token);
+        if (res.ok && res.data) {
+            const arr = res.data.data || [];
+            legData = arr.map(l => {
+                let tags = l.tags;
+                if (typeof tags === 'string') {
+                    try { tags = JSON.parse(tags); } catch (e) { tags = []; }
+                }
+                return { ...l, tags: tags || [] };
+            });
+        }
     } catch (e) {
         console.error("Erro ao carregar legislação:", e);
+    } finally {
+        if (loading) loading.classList.add("hidden");
+        renderLegTable();
     }
 }
 
 function renderLegTable() {
     const tbody = document.getElementById("legTableBody");
+    const table = document.getElementById("legTable");
+    const empty = document.getElementById("legEmpty");
+
+    if (!legData || legData.length === 0) {
+        if (table) table.classList.add("hidden");
+        if (empty) empty.classList.remove("hidden");
+        return;
+    }
+
+    if (table) table.classList.remove("hidden");
+    if (empty) empty.classList.add("hidden");
+
     tbody.innerHTML = legData.map((item, i) => {
         const statusColor = item.status === "Vigente" ? "badge-color-emerald" : "badge-color-slate";
         return `
@@ -237,7 +268,15 @@ function handleSaveLeg() {
 
     renderLegTable();
     closeLegModal();
-    showToast("Legislação salva localmente. Lembre-se de atualizar o arquivo JSON no servidor.");
+    saveLegislacao(session.user, session.token, legData).then(res => {
+        if (res.ok && res.data?.success !== false) {
+            showToast("Legislação salva com sucesso!");
+        } else {
+            showToast("Erro ao salvar legislação na API: " + (res.data?.error || ""));
+        }
+    }).catch(e => {
+        showToast("Erro ao conectar com API para salvar.");
+    });
 }
 
 function openConfirmModal(msg, onConfirm) {
@@ -255,6 +294,13 @@ function deleteLeg(index) {
     openConfirmModal("Confirmar exclusão deste normativo? Esta ação não pode ser desfeita.", () => {
         legData.splice(index, 1);
         renderLegTable();
+        saveLegislacao(session.user, session.token, legData).then(res => {
+            if (res.ok && res.data?.success !== false) {
+                showToast("Legislação excluída com sucesso!");
+            } else {
+                showToast("Erro ao salvar exclusão na API.");
+            }
+        });
     });
 }
 
