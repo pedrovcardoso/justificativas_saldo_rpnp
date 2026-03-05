@@ -33,8 +33,11 @@ export async function POST(request) {
             const insertQuery = `
         INSERT INTO restos_a_pagar (
           uo_codigo, ue_codigo, ano_origem, documento, funcao, subfuncao,
-          programa, projeto_atividade, subprojeto, natureza_item, elemento_item,
-          fonte_recurso, procedencia, saldo_rppn, valor_inscrito, valor_pago, valor_cancelado
+          programa, projeto_atividade, subprojeto, natureza_item, 
+          categoria_economica, grupo_despesa, modalidade_aplicacao, 
+          elemento_despesa, item_despesa, elemento_item,
+          fonte_recurso, procedencia, saldo_rppn, valor_inscrito, 
+          valor_pago, valor_cancelado
         ) VALUES ?
       `;
 
@@ -60,10 +63,15 @@ export async function POST(request) {
                     parts[10] || null,
                     parts[11] || null,
                     parts[12] || null,
-                    parseCurrency(parts[13]),
-                    parseCurrency(parts[14]),
-                    parseCurrency(parts[15]),
-                    parseCurrency(parts[16])
+                    parts[13] || null,
+                    parts[14] || null,
+                    parts[15] || null,
+                    parts[16] || null,
+                    parts[17] || null,
+                    parseCurrency(parts[18]),
+                    parseCurrency(parts[19]),
+                    parseCurrency(parts[20]),
+                    parseCurrency(parts[21])
                 ];
             });
 

@@ -16,17 +16,20 @@ const CHECKBOX_GROUPS = ["Decisao", "Status"];
 let COLUMN_CONFIG = [];
 
 const INITIAL_COLUMNS = [
-    { key: "uo_codigo", label: "UNIDADE ORÇAMENTÁRIA", visible: true },
-    { key: "ue_codigo", label: "UNIDADE EXECUTORA", visible: true },
-    { key: "ano_origem", label: "ANO ORIGEM EMPENHO", visible: true },
-    { key: "documento", label: "NÚMERO EMPENHO", visible: true },
-    { key: "funcao", label: "FUNÇÃO", visible: true },
-    { key: "subfuncao", label: "SUBFUNÇÃO", visible: true },
-    { key: "natureza_item", label: "NATUREZA ITEM", visible: true },
-    { key: "procedencia", label: "PROCEDENCIA", visible: true },
-    { key: "projeto_atividade", label: "PROJETO ATIVIDADE", visible: true },
-    { key: "saldo_rppn", label: "SALDO RPPN", visible: true },
-    { key: "status_documento", label: "STATUS", visible: true }
+    { key: "Saldo Restos a Pagar Não Processado", label: "Saldo Restos a Pagar Não Processado", visible: true },
+    { key: "Unidade Orçamentária - Código", label: "UNIDADE ORÇAMENTARIA", visible: true },
+    { key: "Unidade Executora - Código", label: "UNIDADE EXECUTORA", visible: true },
+    { key: "Ano Origem Restos a Pagar", label: "ANO ORIGEM EMPENHO", visible: true },
+    { key: "Documento Restos a Pagar", label: "NUMERO EMPENHO", visible: true },
+    { key: "Função - Código", label: "FUNÇÃO", visible: true },
+    { key: "Subfunção - Código", label: "SUBFUNÇÃO", visible: true },
+    { key: "Grupo Despesa - Código", label: "GRUPO", visible: true },
+    { key: "Modalidade Aplicação - Código", label: "MODALIDADE", visible: true },
+    { key: "Elemento Despesa - Código", label: "ELEMENTO", visible: true },
+    { key: "Item Despesa - Código", label: "ITEM", visible: true },
+    { key: "Fonte Recurso - Código", label: "FONTE", visible: true },
+    { key: "Procedência - Código", label: "PROCEDENCIA", visible: true },
+    { key: "Projeto_Atividade - Código", label: "PROJETO ATIVIDADE", visible: true }
 ];
 
 let descriptiveData = {
@@ -97,6 +100,7 @@ async function init() {
     }
 
     rawData = res.data?.data?.rows || [];
+    rawData = await ColumnMapper.mapRows(rawData);
     const statusData = await fetchStatusUpdates();
     enrichRows(rawData, statusData);
 
@@ -150,15 +154,7 @@ function enrichRows(rows, statusData = []) {
         row["Status Justificativa"] = update ? (update.status || "Pendente") : "Pendente";
         row["status_documento"] = row["Status Justificativa"];
 
-        // Ensure all initial column keys exist for filtering and table rendering
-        if (row.uo_codigo && !row["Unidade Orçamentária - Código"]) row["Unidade Orçamentária - Código"] = row.uo_codigo;
-        if (row.ue_codigo && !row["Unidade Executora - Código"]) row["Unidade Executora - Código"] = row.ue_codigo;
-        if (row.ano_origem && !row["Ano Origem Restos a Pagar"]) row["Ano Origem Restos a Pagar"] = row.ano_origem;
-        if (row.documento && !row["Documento Restos a Pagar"]) row["Documento Restos a Pagar"] = row.documento;
-        if (row.natureza_item && !row["Natureza_Item Despesa - Código Form"]) row["Natureza_Item Despesa - Código Form"] = row.natureza_item;
-        if (row.elemento_item && !row["Elemento Item Despesa - Código"]) row["Elemento Item Despesa - Código"] = row.elemento_item;
-        if (row.saldo_rppn && !row["Saldo Restos a Pagar Não Processado"]) row["Saldo Restos a Pagar Não Processado"] = row.saldo_rppn;
-        if (row.programa && !row["Programa - Código"]) row["Programa - Código"] = row.programa;
+        // Ensure all initial column keys exist for filtering and table rendering - Handeled by ColumnMapper
 
         const uoCode = String(row.uo_codigo || row["Unidade Orçamentária - Código"] || "").trim();
         const uo = descriptiveData.unidades.find(u => String(u.unidade_orcamentaria_codigo).trim() === uoCode);

@@ -81,6 +81,7 @@ async function loadData() {
             return;
         }
         rowsData = res.data?.data?.rows || [];
+        rowsData = await ColumnMapper.mapRows(rowsData);
         try {
             sessionStorage.setItem(CACHE_KEY, JSON.stringify(rowsData));
         } catch (e) {
@@ -129,10 +130,11 @@ async function loadData() {
             "Unidade Executora - Código",
             "Unidade Executora - Nome",
             "RPPN - Referência",
-            "Exercício de Emissão",
+            "Ano Origem Restos a Pagar",
+            "Documento Restos a Pagar",
             "Programa - Código",
             "Programa - Descrição",
-            "Elemento Item - Código",
+            "Elemento Item Despesa - Código",
             "Elemento Item - Descrição",
             "Saldo Restos a Pagar Não Processado",
             "Valor Inscrito Não Processado",
@@ -376,17 +378,7 @@ function clearAllFilters() {
 
 function enrichRows(rows) {
     rows.forEach(row => {
-        // Map backend names to frontend display names
-        if (row.uo_codigo && !row["Unidade Orçamentária - Código"]) row["Unidade Orçamentária - Código"] = row.uo_codigo;
-        if (row.ue_codigo && !row["Unidade Executora - Código"]) row["Unidade Executora - Código"] = row.ue_codigo;
-        if (row.ano_origem && !row["Ano Origem Restos a Pagar"]) row["Ano Origem Restos a Pagar"] = row.ano_origem;
-        if (row.documento && !row["Documento Restos a Pagar"]) row["Documento Restos a Pagar"] = row.documento;
-        if (row.natureza_item && !row["Natureza_Item Despesa - Código Form"]) row["Natureza_Item Despesa - Código Form"] = row.natureza_item;
-        if (row.elemento_item && !row["Elemento Item Despesa - Código"]) row["Elemento Item Despesa - Código"] = row.elemento_item;
-        if (row.saldo_rppn && !row["Saldo Restos a Pagar Não Processado"]) row["Saldo Restos a Pagar Não Processado"] = row.saldo_rppn;
-        if (row.valor_inscrito && !row["Valor Inscrito Não Processado"]) row["Valor Inscrito Não Processado"] = row.valor_inscrito;
-        if (row.valor_pago && !row["Valor Pago Não Processado"]) row["Valor Pago Não Processado"] = row.valor_pago;
-        if (row.valor_cancelado && !row["Valor Cancelado Não Processado"]) row["Valor Cancelado Não Processado"] = row.valor_cancelado;
+        // Map backend names to frontend display names - handeled by ColumnMapper
 
         const uoCode = String(row["uo_codigo"] || "");
         const uo = descriptiveData.unidades.find(u => String(u.unidade_orcamentaria_codigo) === uoCode);
@@ -675,7 +667,7 @@ function renderCharts(rows) {
     // 3. Saldos por Exercício (Conditional)
     const yearData = {};
     rows.forEach(r => {
-        const year = r["Exercício de Emissão"] || r["ano_origem"] || "N/A";
+        const year = r["Ano Origem Restos a Pagar"] || r["ano_origem"] || "N/A";
         yearData[year] = (yearData[year] || 0) + (parseMoeda(r["Saldo Restos a Pagar Não Processado"]) || 0);
     });
 
