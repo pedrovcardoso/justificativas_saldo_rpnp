@@ -10,6 +10,8 @@ const API_URLS = {
     adminNotif: `${API_BASE}/admin/notifications`,
     adminLeg: `${API_BASE}/admin/legislacao`,
     adminImport: `${API_BASE}/admin/import_csv`,
+    userNotif: `${API_BASE}/user/notifications`,
+    userNotifRead: `${API_BASE}/user/notifications/mark-read`,
 };
 
 async function apiCall(url, body, method = "POST", isFormData = false) {
@@ -106,7 +108,7 @@ async function createNotification(user, token, payload) {
 }
 
 async function updateNotification(user, token, payload) {
-    return apiCall(API_URLS.adminNotif, payload, "PUT");
+    return apiCall(API_URLS.adminNotif, { ...payload, user, token }, "PUT");
 }
 
 async function deleteNotification(user, token, id) {
@@ -129,6 +131,14 @@ async function importCSV(user, token, file) {
     return apiCall(API_URLS.adminImport, formData, "POST", true);
 }
 
+async function getUserNotifications(user) {
+    return apiCall(`${API_URLS.userNotif}?user=${encodeURIComponent(user)}`, null, "GET");
+}
+
+async function markAllNotificationsAsRead(user) {
+    return apiCall(API_URLS.userNotifRead, { user });
+}
+
 if (typeof module !== "undefined") {
     module.exports = {
         sendOtp, validateOtp, validateSession, logout,
@@ -136,6 +146,7 @@ if (typeof module !== "undefined") {
         getData, checkStatus,
         getUsers, createUser, updateUser,
         getNotifications, createNotification, updateNotification, deleteNotification,
-        getLegislacao, saveLegislacao, importCSV
+        getLegislacao, saveLegislacao, importCSV,
+        getUserNotifications, markAllNotificationsAsRead
     };
 }

@@ -63,3 +63,12 @@ CREATE TABLE IF NOT EXISTS legislacao (
   url VARCHAR(500),
   tags JSON
 );
+
+CREATE TABLE IF NOT EXISTS notificacoes_lidas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user VARCHAR(255) NOT NULL,
+  notificacao_id INT NOT NULL,
+  data_leitura DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE INDEX idx_user_notif (user, notificacao_id),
+  FOREIGN KEY (notificacao_id) REFERENCES notificacoes(id) ON DELETE CASCADE
+);

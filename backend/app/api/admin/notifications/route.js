@@ -10,7 +10,7 @@ export async function GET(request) {
 
         if (!user || !token) return badRequest('Campos "user" e "token" são obrigatórios.');
 
-        const auth = await requireAuth({ json: async () => ({ user, token }) });
+        const auth = await requireAuth(request);
         if (auth.error) return authError(auth);
 
         const [rows] = await db.query('SELECT * FROM notificacoes ORDER BY id DESC');
@@ -58,7 +58,10 @@ export async function PUT(request) {
 
         if (result.affectedRows === 0) return notFound('Notificação não encontrada.');
 
-        return ok({}, 'Notificação atualizada com sucesso.');
+        // Se editou, remove os registros de leitura para que apareça como nova para todos
+        await db.query('DELETE FROM notificacoes_lidas WHERE notificacao_id = ?', [id]);
+
+        return ok({ success: true }, 'Notificação atualizada com sucesso.');
     } catch (e) {
         return serverError(e.message);
     }

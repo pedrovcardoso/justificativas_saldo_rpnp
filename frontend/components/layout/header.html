@@ -16,11 +16,26 @@
             <span
                 class="absolute -bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Ajuda</span>
         </button>
-        <button class="relative text-slate-400 hover:text-[#003D5D] transition-colors group">
-            <i class='bx bx-bell text-2xl'></i>
-            <span class="absolute top-0 right-0 w-2.5 h-2.5 bg-[#D61A21] rounded-full border-2 border-white"></span>
-            <span
-                class="absolute -bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Notificações</span>
-        </button>
+        <div class="relative group" id="notification-wrapper">
+            <button class="relative text-slate-400 hover:text-[#003D5D] transition-colors group" id="notification-btn">
+                <i class='bx bx-bell text-2xl'></i>
+                <span id="notification-dot"
+                    class="hidden absolute top-0 right-0 w-2.5 h-2.5 bg-[#D61A21] rounded-full border-2 border-white"></span>
+                <span
+                    class="absolute -bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Notificações</span>
+            </button>
+            <div id="notification-panel"
+                class="hidden absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-30">
+                <div class="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                    <span class="font-bold text-slate-700 text-sm">Notificações</span>
+                    <button id="mark-all-read-btn"
+                        class="text-[10px] font-bold text-[#003D5D] hover:underline uppercase tracking-wider">Marcar
+                        todas como lidas</button>
+                </div>
+                <div id="notification-list" class="max-h-96 overflow-y-auto">
+                    <div class="p-8 text-center text-slate-400 text-xs">Carregando...</div>
+                </div>
+            </div>
+        </div>
     </div>
 </header>

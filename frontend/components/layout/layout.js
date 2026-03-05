@@ -58,6 +58,7 @@ const Layout = {
 
             this.setActiveMenu();
             this.setupUserDisplay();
+            this.setupNotifications();
             this.refreshSession();
             resolve();
         });
@@ -207,6 +208,76 @@ const Layout = {
         } catch (e) {
             console.error("Background session validation failed:", e);
         }
+    },
+
+    async setupNotifications() {
+        const session = typeof getSession === 'function' ? getSession() : null;
+        if (!session) return;
+
+        const btn = document.getElementById("notification-btn");
+        const panel = document.getElementById("notification-panel");
+        const list = document.getElementById("notification-list");
+        const dot = document.getElementById("notification-dot");
+        const markAllBtn = document.getElementById("mark-all-read-btn");
+
+        if (!btn || !panel || !list) return;
+
+        const updateNotifications = async () => {
+            try {
+                const res = await getUserNotifications(session.user);
+                if (res.ok) {
+                    const notifications = res.data.data || [];
+                    const unreadCount = notifications.filter(n => !n.lida).length;
+
+                    dot.classList.toggle("hidden", unreadCount === 0);
+
+                    if (notifications.length === 0) {
+                        list.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs italic">Nenhuma notificação encontrada</div>`;
+                    } else {
+                        list.innerHTML = notifications.map(n => `
+                            <div class="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-default ${!n.lida ? 'bg-blue-50/30' : ''}">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-2 h-2 rounded-full mt-1.5 shrink-0 ${!n.lida ? 'bg-[#D61A21]' : 'bg-slate-200'}"></div>
+                                    <div class="flex-1">
+                                        <p class="text-xs font-black text-[#003D5D] mb-1">${n.titulo}</p>
+                                        <p class="text-[11px] text-slate-500 leading-relaxed">${n.mensagem}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.error("Notifications fetch failed:", e);
+            }
+        };
+
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            panel.classList.toggle("hidden");
+            if (!panel.classList.contains("hidden")) {
+                updateNotifications();
+            }
+        };
+
+        markAllBtn.onclick = async (e) => {
+            e.stopPropagation();
+            const res = await markAllNotificationsAsRead(session.user);
+            if (res.ok) {
+                updateNotifications();
+            }
+        };
+
+        document.addEventListener("click", (e) => {
+            if (!panel.contains(e.target) && e.target !== btn) {
+                panel.classList.add("hidden");
+            }
+        });
+
+        // Initial check for the dot
+        updateNotifications();
+        // Periodical check (every 5 minutes)
+        setInterval(updateNotifications, 5 * 60 * 1000);
     },
 
     setHeaderActions(html) { }

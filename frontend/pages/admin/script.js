@@ -4,26 +4,50 @@ let legData = [];
 let editingLegIndex = null;
 let editingNotifId = null;
 
+const loadedTabs = new Set();
+
 async function init() {
     await Layout.ready;
     switchTab("estatisticas");
-    loadLegislacao();
-    loadUsers();
-    loadStats();
 }
 
 function switchTab(tab) {
-    document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
-    document.querySelectorAll(".tab-btn").forEach(btn => {
+    const tabBtns = document.querySelectorAll(".tab-btn");
+    const tabContents = document.querySelectorAll(".tab-content");
+
+    tabContents.forEach(el => el.classList.add("hidden"));
+
+    tabBtns.forEach(btn => {
         const isActive = btn.dataset.tab === tab;
+        // Classes de estado ativo (Premium)
         btn.classList.toggle("bg-[#003D5D]", isActive);
         btn.classList.toggle("text-white", isActive);
-        btn.classList.toggle("shadow-lg", isActive);
+        btn.classList.toggle("shadow-xl", isActive);
         btn.classList.toggle("shadow-[#003D5D]/20", isActive);
+        btn.classList.toggle("scale-105", isActive);
+
+        // Classes de estado inativo
         btn.classList.toggle("text-slate-500", !isActive);
-        btn.classList.toggle("hover:bg-slate-100", !isActive);
+        btn.classList.toggle("hover:bg-white", !isActive);
     });
-    document.getElementById(`tab-${tab}`)?.classList.remove("hidden");
+
+    const targetContent = document.getElementById(`tab-${tab}`);
+    if (targetContent) {
+        targetContent.classList.remove("hidden");
+        targetContent.classList.add("animate-in", "fade-in", "slide-in-from-bottom-2", "duration-500");
+    }
+
+    // Lazy Load logic
+    if (!loadedTabs.has(tab)) {
+        loadedTabs.add(tab);
+        const loaders = {
+            "estatisticas": loadStats,
+            "usuarios": loadUsers,
+            "legislacao": loadLegislacao,
+            "notificacoes": loadNotifications
+        };
+        if (loaders[tab]) loaders[tab]();
+    }
 }
 
 async function loadUsers() {
@@ -91,6 +115,7 @@ async function handleSaveUser() {
     if (res.ok && res.data?.success) {
         closeUserModal();
         loadUsers();
+        showToast("Usuário salvo com sucesso!", "success");
     } else {
         showModalAlert("userModalAlert", res.data?.error || "Erro ao salvar usuário.");
     }
@@ -282,7 +307,9 @@ function handleSaveLeg() {
 function openConfirmModal(msg, onConfirm) {
     document.getElementById("confirmModalMsg").textContent = msg;
     const btn = document.getElementById("btnConfirmAction");
-    btn.onclick = () => { closeConfirmModal(); onConfirm(); };
+    btn.disabled = false;
+    btn.innerHTML = "Excluir";
+    btn.onclick = onConfirm;
     document.getElementById("modalConfirm").classList.remove("hidden");
 }
 
@@ -291,16 +318,27 @@ function closeConfirmModal() {
 }
 
 function deleteLeg(index) {
-    openConfirmModal("Confirmar exclusão deste normativo? Esta ação não pode ser desfeita.", () => {
-        legData.splice(index, 1);
-        renderLegTable();
-        saveLegislacao(session.user, session.token, legData).then(res => {
+    openConfirmModal("Confirmar exclusão deste normativo? Esta ação não pode ser desfeita.", async () => {
+        const btn = document.getElementById("btnConfirmAction");
+        btn.disabled = true;
+        btn.innerHTML = `<i class='bx bx-loader-alt animate-spin mr-2'></i> Excluindo…`;
+
+        try {
+            legData.splice(index, 1);
+            const res = await saveLegislacao(session.user, session.token, legData);
             if (res.ok && res.data?.success !== false) {
-                showToast("Legislação excluída com sucesso!");
+                showToast("Legislação excluída com sucesso!", "success");
+                renderLegTable();
+                closeConfirmModal();
             } else {
-                showToast("Erro ao salvar exclusão na API.");
+                showToast("Erro ao salvar exclusão na API.", "error");
             }
-        });
+        } catch (e) {
+            showToast("Erro de conexão ao excluir.", "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = "Excluir";
+        }
     });
 }
 
@@ -317,6 +355,70 @@ function openNotifModal(notif = null) {
 
 function closeNotifModal() { document.getElementById("modalNotif").classList.add("hidden"); }
 
+async function loadNotifications() {
+    const loading = document.getElementById("notifStateLoading");
+    const table = document.getElementById("notifTable");
+    const empty = document.getElementById("notifEmpty");
+
+    if (loading) loading.classList.remove("hidden");
+    if (table) table.classList.add("hidden");
+    if (empty) empty.classList.add("hidden");
+
+    try {
+        const res = await getNotifications(session.user, session.token);
+        if (res.ok) {
+            const notifications = res.data.data || [];
+            renderNotifTable(notifications);
+        }
+    } catch (e) {
+        console.error("Erro ao carregar notificações:", e);
+    } finally {
+        if (loading) loading.classList.add("hidden");
+    }
+}
+
+function renderNotifTable(notifications) {
+    const tbody = document.getElementById("notifTableBody");
+    const table = document.getElementById("notifTable");
+    const empty = document.getElementById("notifEmpty");
+
+    if (!notifications || notifications.length === 0) {
+        table.classList.add("hidden");
+        empty.classList.remove("hidden");
+        return;
+    }
+
+    table.classList.remove("hidden");
+    empty.classList.add("hidden");
+
+    tbody.innerHTML = notifications.map(n => `
+        <tr class="hover:bg-slate-50 transition-colors group">
+            <td class="px-6 py-4">
+                <span class="text-[13px] font-bold text-slate-700 block">${n.titulo}</span>
+                <span class="text-[11px] text-slate-400 font-medium line-clamp-1">${n.mensagem}</span>
+            </td>
+            <td class="px-6 py-4">
+                <span class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border-2 ${n.tipo === 'urgente' ? 'badge-color-rose' : n.tipo === 'aviso' ? 'badge-color-amber' : 'badge-color-sky'}">${n.tipo}</span>
+            </td>
+            <td class="px-6 py-4">
+                <span class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border-2 ${n.ativo ? 'badge-color-emerald' : 'badge-color-slate'}">${n.ativo ? 'Ativo' : 'Inativo'}</span>
+            </td>
+            <td class="px-6 py-4 text-right">
+                <div class="flex items-center justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <button onclick='openNotifModal(${JSON.stringify(n).replace(/'/g, "&apos;")})'
+                        class="text-[10px] font-black text-slate-400 hover:text-[#003D5D] transition-colors px-4 py-2 rounded-xl border-2 border-transparent hover:border-slate-200 hover:bg-white">
+                        <i class='bx bx-edit-alt mr-1'></i>Editar
+                    </button>
+                    <button onclick="deleteNotif(${n.id})"
+                        class="text-[10px] font-black text-slate-400 hover:text-[#D61A21] transition-colors px-4 py-2 rounded-xl border-2 border-transparent hover:border-rose-100 hover:bg-rose-50">
+                        <i class='bx bx-trash mr-1'></i>Excluir
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join("");
+}
+
 async function handleSaveNotif() {
     const titulo = document.getElementById("notifFieldTitulo").value.trim();
     const mensagem = document.getElementById("notifFieldMensagem").value.trim();
@@ -327,20 +429,55 @@ async function handleSaveNotif() {
         titulo,
         mensagem,
         tipo: document.getElementById("notifFieldTipo").value,
-        ativo: document.getElementById("notifFieldAtivo").checked
+        ativo: document.getElementById("notifFieldAtivo").checked ? 1 : 0
     };
 
     const btn = document.getElementById("btnSaveNotif");
     btn.disabled = true;
     btn.innerHTML = `<i class='bx bx-loader-alt animate-spin mr-2'></i> Salvando…`;
 
-    const res = editingNotifId
-        ? await updateNotification(session.user, session.token, payload)
-        : await createNotification(session.user, session.token, payload);
+    try {
+        const res = editingNotifId
+            ? await updateNotification(session.user, session.token, payload)
+            : await createNotification(session.user, session.token, payload);
 
-    btn.disabled = false;
-    btn.textContent = "Salvar Notificação";
-    showModalAlert("notifModalAlert", res.data?.error || "API não implementada ainda. Formulário validado com sucesso.", "info");
+        if (res.ok && res.data?.success !== false) {
+            closeNotifModal();
+            loadNotifications();
+            showToast("Notificação salva com sucesso!", "success");
+        } else {
+            showModalAlert("notifModalAlert", res.data?.error || "Erro ao salvar notificação.");
+        }
+    } catch (e) {
+        showModalAlert("notifModalAlert", "Erro de conexão com o servidor.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Salvar Notificação";
+    }
+}
+
+function deleteNotif(id) {
+    openConfirmModal("Deseja realmente excluir esta notificação? Esta ação é irreversível.", async () => {
+        const btn = document.getElementById("btnConfirmAction");
+        btn.disabled = true;
+        btn.innerHTML = `<i class='bx bx-loader-alt animate-spin mr-2'></i> Excluindo…`;
+
+        try {
+            const res = await deleteNotification(session.user, session.token, id);
+            if (res.ok) {
+                showToast("Notificação excluída com sucesso.", "success");
+                loadNotifications();
+                closeConfirmModal();
+            } else {
+                showToast("Erro ao excluir notificação: " + (res.data?.error || ""), "error");
+            }
+        } catch (e) {
+            showToast("Erro de conexão ao excluir.", "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = "Excluir";
+        }
+    });
 }
 
 function showModalAlert(id, msg, type = "error") {
@@ -350,13 +487,7 @@ function showModalAlert(id, msg, type = "error") {
     el.classList.remove("hidden");
 }
 
-function showToast(msg) {
-    const toast = document.createElement("div");
-    toast.className = "fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[12px] font-bold px-6 py-4 rounded-2xl shadow-2xl z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300";
-    toast.textContent = msg;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
-}
+
 
 function handleFileSelect(event) {
     const file = event.target.files[0];
@@ -394,7 +525,7 @@ async function handleImportCSV() {
     btn.innerHTML = `<i class='bx bx-check-double text-lg'></i> Iniciar Importação`;
 
     if (res.ok && res.data?.success) {
-        showModalAlert("importStatusAlert", `Sucesso! ${res.data.data.count} registros importados.`, "info");
+        showToast(`Sucesso! ${res.data.data.count} registros importados.`, "success");
         fileInput.value = "";
         document.getElementById("fileNameDisplay").textContent = "Selecionar arquivo CSV";
         document.getElementById("fileNameDisplay").classList.add("text-slate-400");
