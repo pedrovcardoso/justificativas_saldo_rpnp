@@ -18,49 +18,68 @@
         <aside></aside>
         <div class="flex-1 flex flex-col h-screen overflow-hidden">
             <header></header>
-            <main class="flex-1 p-10 bg-[#F6F6F6] overflow-y-auto">
+            <main class="flex-1 bg-[#F6F6F6] overflow-y-auto custom-scrollbar">
+                <div class="p-8 lg:p-12 max-w-[1600px] mx-auto">
 
-                <div class="mb-10">
-                    <h2 class="text-3xl font-black text-[#003D5D] mb-2 normal-case [letter-spacing:normal]">
-                        Administração</h2>
-                    <p class="text-slate-500 font-medium normal-case [letter-spacing:normal]">Gerencie usuários,
-                        consulte estatísticas e edite conteúdos do sistema.</p>
+                <div class="mb-8">
+                    <h2 class="text-3xl font-black text-[#003D5D] mb-1 tracking-tight">Administração</h2>
+                    <p class="text-slate-500 font-medium text-sm">Gerencie o sistema e consulte estatísticas avançadas.</p>
                 </div>
 
-                <!-- Tabs -->
-                <div
-                    class="flex gap-2 mb-10 bg-white/50 backdrop-blur-md border-2 border-slate-200/60 rounded-[2rem] p-2 shadow-sm w-fit group/tabs">
+                <!-- Modern Horizontal Top Navigation -->
+                <nav class="flex items-center gap-8 mb-10 border-b-2 border-slate-200/60 overflow-x-auto overflow-y-hidden no-scrollbar">
                     <button data-tab="estatisticas" onclick="switchTab('estatisticas')"
-                        class="tab-btn px-8 py-3.5 rounded-[1.8rem] text-[12px] font-black tracking-tight transition-all duration-300 flex items-center gap-2.5 active-tab hover:bg-white hover:shadow-sm">
-                        <i class='bx bx-bar-chart-alt-2 text-xl'></i>
-                        <span class="hidden sm:inline">Estatísticas</span>
+                        class="tab-btn group relative pb-4 text-[13px] font-bold transition-all duration-300 active-tab whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i class='bx bx-bar-chart-alt-2 text-xl'></i>
+                            <span>Estatísticas</span>
+                        </div>
+                        <div class="absolute bottom-[-2px] left-0 w-full h-1 bg-[#003D5D] rounded-full scale-x-0 transition-transform duration-300 active-indicator"></div>
                     </button>
                     <button data-tab="usuarios" onclick="switchTab('usuarios')"
-                        class="tab-btn px-8 py-3.5 rounded-[1.8rem] text-[12px] font-black tracking-tight transition-all duration-300 flex items-center gap-2.5 hover:bg-white hover:shadow-sm text-slate-500">
-                        <i class='bx bx-group text-xl'></i>
-                        <span class="hidden sm:inline">Usuários</span>
+                        class="tab-btn group relative pb-4 text-[13px] font-bold transition-all duration-300 text-slate-400 hover:text-slate-600 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i class='bx bx-group text-xl'></i>
+                            <span>Usuários</span>
+                        </div>
+                        <div class="absolute bottom-[-2px] left-0 w-full h-1 bg-[#003D5D] rounded-full scale-x-0 transition-transform duration-300 active-indicator"></div>
                     </button>
                     <button data-tab="legislacao" onclick="switchTab('legislacao')"
-                        class="tab-btn px-8 py-3.5 rounded-[1.8rem] text-[12px] font-black tracking-tight transition-all duration-300 flex items-center gap-2.5 hover:bg-white hover:shadow-sm text-slate-500">
-                        <i class='bx bx-book-open text-xl'></i>
-                        <span class="hidden sm:inline">Legislação</span>
+                        class="tab-btn group relative pb-4 text-[13px] font-bold transition-all duration-300 text-slate-400 hover:text-slate-600 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i class='bx bx-book-open text-xl'></i>
+                            <span>Legislação</span>
+                        </div>
+                        <div class="absolute bottom-[-2px] left-0 w-full h-1 bg-[#003D5D] rounded-full scale-x-0 transition-transform duration-300 active-indicator"></div>
                     </button>
                     <button data-tab="notificacoes" onclick="switchTab('notificacoes')"
-                        class="tab-btn px-8 py-3.5 rounded-[1.8rem] text-[12px] font-black tracking-tight transition-all duration-300 flex items-center gap-2.5 hover:bg-white hover:shadow-sm text-slate-500">
-                        <i class='bx bx-bell text-xl'></i>
-                        <span class="hidden sm:inline">Notificações</span>
+                        class="tab-btn group relative pb-4 text-[13px] font-bold transition-all duration-300 text-slate-400 hover:text-slate-600 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i class='bx bx-bell text-xl'></i>
+                            <span>Notificações</span>
+                        </div>
+                        <div class="absolute bottom-[-2px] left-0 w-full h-1 bg-[#003D5D] rounded-full scale-x-0 transition-transform duration-300 active-indicator"></div>
                     </button>
                     <button data-tab="tipos_justificativa" onclick="switchTab('tipos_justificativa')"
-                        class="tab-btn px-8 py-3.5 rounded-[1.8rem] text-[12px] font-black tracking-tight transition-all duration-300 flex items-center gap-2.5 hover:bg-white hover:shadow-sm text-slate-500">
-                        <i class='bx bx-list-check text-xl'></i>
-                        <span class="hidden sm:inline">Justificativas</span>
+                        class="tab-btn group relative pb-4 text-[13px] font-bold transition-all duration-300 text-slate-400 hover:text-slate-600 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i class='bx bx-list-check text-xl'></i>
+                            <span>Justificativas</span>
+                        </div>
+                        <div class="absolute bottom-[-2px] left-0 w-full h-1 bg-[#003D5D] rounded-full scale-x-0 transition-transform duration-300 active-indicator"></div>
                     </button>
                     <button data-tab="dados" onclick="switchTab('dados')"
-                        class="tab-btn px-8 py-3.5 rounded-[1.8rem] text-[12px] font-black tracking-tight transition-all duration-300 flex items-center gap-2.5 hover:bg-white hover:shadow-sm text-slate-500">
-                        <i class='bx bx-data text-xl'></i>
-                        <span class="hidden sm:inline">Base de Dados</span>
+                        class="tab-btn group relative pb-4 text-[13px] font-bold transition-all duration-300 text-slate-400 hover:text-slate-600 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i class='bx bx-data text-xl'></i>
+                            <span>Base de Dados</span>
+                        </div>
+                        <div class="absolute bottom-[-2px] left-0 w-full h-1 bg-[#003D5D] rounded-full scale-x-0 transition-transform duration-300 active-indicator"></div>
                     </button>
-                </div>
+                </nav>
+
+                <!-- Page Content Region -->
+                <div class="space-y-8 animate-in fade-in duration-700">
 
                 <!-- ======== TAB: USUÁRIOS ======== -->
                 <div id="tab-usuarios" class="tab-content">
@@ -1107,6 +1126,8 @@
                     </div>
                 </div>
 
+                    </div>
+                </div>
             </main>
         </div>
     </div>

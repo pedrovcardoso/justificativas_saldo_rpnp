@@ -19,16 +19,23 @@ function switchTab(tab) {
 
     tabBtns.forEach(btn => {
         const isActive = btn.dataset.tab === tab;
-        // Classes de estado ativo (Premium)
-        btn.classList.toggle("bg-[#003D5D]", isActive);
-        btn.classList.toggle("text-white", isActive);
-        btn.classList.toggle("shadow-xl", isActive);
-        btn.classList.toggle("shadow-[#003D5D]/20", isActive);
-        btn.classList.toggle("scale-105", isActive);
+        const indicator = btn.querySelector(".active-indicator");
 
-        // Classes de estado inativo
-        btn.classList.toggle("text-slate-500", !isActive);
-        btn.classList.toggle("hover:bg-white", !isActive);
+        // Reset
+        btn.classList.remove("text-[#003D5D]");
+        btn.classList.add("text-slate-400");
+        if (indicator) indicator.classList.remove("scale-x-100");
+        if (indicator) indicator.classList.add("scale-x-0");
+
+        // Active
+        if (isActive) {
+            btn.classList.remove("text-slate-400");
+            btn.classList.add("text-[#003D5D]");
+            if (indicator) {
+                indicator.classList.remove("scale-x-0");
+                indicator.classList.add("scale-x-100");
+            }
+        }
     });
 
     const targetContent = document.getElementById(`tab-${tab}`);
@@ -128,8 +135,8 @@ let statsDescriptiveData = { unidades: [], programas: [], elementos: [] };
 let chartsMap = {};
 
 const STATS_PANEL_SELECT_IDS = [
-    "statFilterUO", "statFilterUE", "statFilterAno", "statFilterPrograma", 
-    "statFilterElemento", "statFilterFuncao", "statFilterSubfuncao", 
+    "statFilterUO", "statFilterUE", "statFilterAno", "statFilterPrograma",
+    "statFilterElemento", "statFilterFuncao", "statFilterSubfuncao",
     "statFilterProcedencia", "statFilterProjetoAtividade", "statFilterStatus",
     "statFilterDecisao", "statFilterDocumento", "statFilterSubprojeto",
     "statFilterNaturezaItem", "statFilterCategoriaEconomica", "statFilterGrupoDespesa",
@@ -175,7 +182,7 @@ async function loadStats() {
     }
 
     let raw = res.data?.data?.rows || [];
-    
+
     // Fallback if ColumnMapper exists
     if (typeof ColumnMapper !== "undefined") {
         raw = await ColumnMapper.mapRows(raw);
@@ -239,7 +246,7 @@ function toggleStatsMoreFilters() {
     const content = document.getElementById("statMoreFiltersContent");
     const icon = document.getElementById("statIconMoreFilters");
     if (!content || !icon) return;
-    
+
     const isHidden = content.classList.contains("hidden");
     content.classList.toggle("hidden", !isHidden);
     icon.classList.toggle("rotate-180", isHidden);
@@ -247,7 +254,7 @@ function toggleStatsMoreFilters() {
 
 function enrichStatsRows(rows, statusData = []) {
     const sData = Array.isArray(statusData) ? statusData : [];
-    
+
     // Create latest status map
     const latestMap = {};
     sData.forEach(s => {
@@ -263,7 +270,7 @@ function enrichStatsRows(rows, statusData = []) {
 
         row["Status Justificativa"] = update ? (update.status || "Pendente") : "Pendente";
         row["Decisao"] = update ? (update.decisao || "Pendente") : "Pendente";
-        
+
         const uoCode = String(row.uo_codigo || row["Unidade Orçamentária - Código"] || "").trim();
         const uo = statsDescriptiveData.unidades.find(u => String(u.unidade_orcamentaria_codigo).trim() === uoCode);
         const ueCode = String(row.ue_codigo || row["Unidade Executora - Código"] || "").trim();
@@ -290,13 +297,13 @@ function enrichStatsRows(rows, statusData = []) {
             if (e) { elemDesc = e.descricao; break; }
         }
         row["Elemento Item - Descrição"] = elemDesc;
-        
+
         row.saldoNum = 0;
-        if(typeof parseMoeda === "function"){
-             row.saldoNum = parseMoeda(row.saldo_rppn || row["Saldo Restos a Pagar Não Processado"]);
+        if (typeof parseMoeda === "function") {
+            row.saldoNum = parseMoeda(row.saldo_rppn || row["Saldo Restos a Pagar Não Processado"]);
         } else {
-             const str = String(row.saldo_rppn || row["Saldo Restos a Pagar Não Processado"] || "0").replace(/\./g, '').replace(',', '.');
-             row.saldoNum = parseFloat(str) || 0;
+            const str = String(row.saldo_rppn || row["Saldo Restos a Pagar Não Processado"] || "0").replace(/\./g, '').replace(',', '.');
+            row.saldoNum = parseFloat(str) || 0;
         }
     });
 }
@@ -311,10 +318,10 @@ function populateStatsFilterOptions() {
         if (row.ano_origem || row["Ano Origem Restos a Pagar"]) sets.statFilterAno.add(String(row.ano_origem || row["Ano Origem Restos a Pagar"]));
         if (row["Programa - Descrição"]) sets.statFilterPrograma.add(row["Programa - Descrição"]);
         if (row["Elemento Item - Descrição"]) sets.statFilterElemento.add(row["Elemento Item - Descrição"]);
-        
+
         const fn = row.funcao || row["Função - Código"];
         if (fn) sets.statFilterFuncao.add(String(fn));
-        
+
         const sf = row.subfuncao || row["Subfunção - Código"];
         if (sf) sets.statFilterSubfuncao.add(String(sf));
 
@@ -368,7 +375,7 @@ function applyStatsFilters() {
         cbSta: getStatCheckboxValues("Status"),
         sMin: parseFloat(document.getElementById('statFilterSaldoMin')?.value),
         sMax: parseFloat(document.getElementById('statFilterSaldoMax')?.value),
-        
+
         doc: getStatFilterVals("statFilterDocumento"),
         spr: getStatFilterVals("statFilterSubprojeto"),
         nat: getStatFilterVals("statFilterNaturezaItem"),
@@ -391,7 +398,7 @@ function applyStatsFilters() {
         const matchesPC = !f.pc.length || f.pc.includes(String(row.procedencia || row["Procedência - Código"]));
         const matchesPA = !f.pa.length || f.pa.includes(String(row.projeto_atividade || row["Projeto_Atividade - Código"]));
         const matchesST = !f.st.length || f.st.includes(row["Status Justificativa"]);
-        
+
         const matchesCbDec = !f.cbDec.length || f.cbDec.includes(row["Decisao"]);
         const matchesCbSta = !f.cbSta.length || f.cbSta.includes(row["Status Justificativa"]);
 
@@ -409,11 +416,11 @@ function applyStatsFilters() {
         const matchesItd = !f.itd.length || f.itd.includes(String(row.item_despesa));
         const matchesFnt = !f.fnt.length || f.fnt.includes(String(row.fonte_recurso));
 
-        return matchesUO && matchesUE && matchesAN && matchesPR && matchesEL && 
-               matchesFN && matchesSF && matchesPC && matchesPA && matchesST &&
-               matchesCbDec && matchesCbSta && matchesSMin && matchesSMax &&
-               matchesDoc && matchesSpr && matchesNat && matchesCat && matchesGrp &&
-               matchesMod && matchesEdp && matchesItd && matchesFnt;
+        return matchesUO && matchesUE && matchesAN && matchesPR && matchesEL &&
+            matchesFN && matchesSF && matchesPC && matchesPA && matchesST &&
+            matchesCbDec && matchesCbSta && matchesSMin && matchesSMax &&
+            matchesDoc && matchesSpr && matchesNat && matchesCat && matchesGrp &&
+            matchesMod && matchesEdp && matchesItd && matchesFnt;
     });
 
     renderStatsCards();
@@ -424,7 +431,7 @@ function toggleStatsFilters() {
     const sidebar = document.getElementById("statsFiltersSidebar");
     const btn = document.getElementById("btnOpenStatsFilters");
     if (!sidebar || !btn) return;
-    
+
     const isOpening = sidebar.classList.contains("hidden");
     sidebar.classList.toggle("hidden", !isOpening);
     btn.classList.toggle("hidden", isOpening);
@@ -432,9 +439,9 @@ function toggleStatsFilters() {
 
 function clearStatsFilters() {
     STATS_PANEL_SELECT_IDS.forEach(id => {
-        if(typeof clearCustomSelect === "function") clearCustomSelect(id);
+        if (typeof clearCustomSelect === "function") clearCustomSelect(id);
     });
-    
+
     document.querySelectorAll('input[data-group]').forEach(c => c.checked = false);
 
     ['statFilterSaldoMin', 'statFilterSaldoMax'].forEach(id => {
@@ -446,7 +453,7 @@ function clearStatsFilters() {
 
 function renderStatsCards() {
     if (!statsFilteredData) return;
-    
+
     const total = statsFilteredData.length;
     let volume = 0;
     let volumeInscrito = 0;
@@ -456,7 +463,7 @@ function renderStatsCards() {
     let pendentes = 0;
     let analise = 0;
     let concluidos = 0;
-    
+
     const anoAtual = new Date().getFullYear();
 
     statsFilteredData.forEach(row => {
@@ -469,15 +476,15 @@ function renderStatsCards() {
         volumeInscrito += inscrito;
         volumePago += pago;
         volumeCancelado += cancelado;
-        
+
         const anoOrigem = parseInt(row.ano_origem || row["Ano Origem Restos a Pagar"]) || anoAtual;
         const idade = Math.max(0, anoAtual - anoOrigem);
         anosAcumulados += idade;
-        
+
         const st = String(row["Status Justificativa"]).toLowerCase();
-        if(st === "pendente") pendentes++;
-        else if(st === "rejeitado") pendentes++;
-        else if(st === "aceito") concluidos++;
+        if (st === "pendente") pendentes++;
+        else if (st === "rejeitado") pendentes++;
+        else if (st === "aceito") concluidos++;
         else analise++;
     });
 
@@ -517,7 +524,7 @@ function renderStatsCards() {
     safeSetText("statCardInscrito", inscFormat);
     safeSetText("statCardPago", pagoFormat);
     safeSetText("statCardCancelado", cancFormat);
-    
+
     const volEl = document.getElementById("statCardVolume");
     if (volEl) {
         volEl.textContent = volFormat;
@@ -587,16 +594,16 @@ function renderAnoEvolucaoChart() {
         anoMap[ano].val += row.saldoNum;
     });
     const anosSorted = Object.keys(anoMap).sort();
-    
+
     safeRenderApexChart("chartAnoLine", {
         ...getApexGlobalOptions(),
         series: [{ name: 'Saldo R$', type: 'column', data: anosSorted.map(a => anoMap[a].val) },
-                 { name: 'Registros', type: 'line', data: anosSorted.map(a => anoMap[a].qty) }],
+        { name: 'Registros', type: 'line', data: anosSorted.map(a => anoMap[a].qty) }],
         chart: { height: 320, type: 'line', ...getApexGlobalOptions().chart },
         stroke: { width: [0, 4] },
         labels: anosSorted,
         yaxis: [{
-            labels: { formatter: (val) => "R$ " + formatBRL(val).replace("R$","").trim() }
+            labels: { formatter: (val) => "R$ " + formatBRL(val).replace("R$", "").trim() }
         }, {
             opposite: true,
             labels: { formatter: (val) => Math.round(val) }
@@ -636,7 +643,7 @@ function renderParetoChart() {
     });
 
     const labels = sorted.map(i => i[0].length > 20 ? i[0].substring(0, 17) + '...' : i[0]);
-    
+
     const annotations = { points: [] };
     if (thresholdIdx !== -1) {
         annotations.points.push({
@@ -682,17 +689,17 @@ function renderParetoChart() {
 function renderAgingChart() {
     const anoAtual = new Date().getFullYear();
     const ageBands = { "Até 1 ano": 0, "2 a 3 anos": 0, "4 a 5 anos": 0, "Mais de 5 anos": 0 };
-    
+
     statsFilteredData.forEach(row => {
         const anoOrigem = parseInt(row.ano_origem || row["Ano Origem Restos a Pagar"]) || anoAtual;
         const idade = Math.max(0, anoAtual - anoOrigem);
-        
+
         let band = "";
         if (idade <= 1) band = "Até 1 ano";
         else if (idade <= 3) band = "2 a 3 anos";
         else if (idade <= 5) band = "4 a 5 anos";
         else band = "Mais de 5 anos";
-        
+
         ageBands[band] += row.saldoNum;
     });
 
@@ -702,7 +709,7 @@ function renderAgingChart() {
         chart: { type: 'bar', height: 320, ...getApexGlobalOptions().chart },
         plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
         dataLabels: { enabled: false },
-        xaxis: { 
+        xaxis: {
             categories: Object.keys(ageBands),
             labels: { formatter: val => "R$ " + (val / 1000000).toFixed(1) + "M" }
         },
@@ -719,10 +726,10 @@ function renderBubbleChart() {
     statsFilteredData.forEach(row => {
         const key = String(row[colId] || "Desconhecido");
         if (!bubbleMap[key]) bubbleMap[key] = { saldo: 0, count: 0, sumIdades: 0 };
-        
+
         const anoOrigem = parseInt(row.ano_origem || row["Ano Origem Restos a Pagar"]) || anoAtual;
         const idade = Math.max(0, anoAtual - anoOrigem);
-        
+
         bubbleMap[key].saldo += row.saldoNum;
         bubbleMap[key].count += 1;
         bubbleMap[key].sumIdades += idade;
@@ -745,16 +752,16 @@ function renderBubbleChart() {
         chart: { type: 'bubble', height: 320, ...getApexGlobalOptions().chart },
         dataLabels: { enabled: false },
         xaxis: { title: { text: "Idade Média (Anos)" }, min: 0, tickAmount: 5 },
-        yaxis: { 
+        yaxis: {
             title: { text: "Volume Financeiro (R$)" },
             labels: { formatter: val => "R$ " + (val / 1000000).toFixed(1) + "M" }
         },
         tooltip: {
-            custom: function({series, seriesIndex, dataPointIndex, w}) {
+            custom: function ({ series, seriesIndex, dataPointIndex, w }) {
                 const data = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
                 const name = w.globals.initialSeries[seriesIndex].name;
                 return '<div class="px-4 py-3 bg-white border outline-none shadow-lg rounded-xl">' +
-                    '<span class="font-black text-[12px] text-[#003D5D] block mb-2 max-w-[200px] truncate" title="'+name+'">' + name + '</span>' +
+                    '<span class="font-black text-[12px] text-[#003D5D] block mb-2 max-w-[200px] truncate" title="' + name + '">' + name + '</span>' +
                     '<div class="text-[11px] font-medium text-slate-500 space-y-1">' +
                     '<div><b>Idade Média:</b> ' + data[0].toFixed(1) + ' anos</div>' +
                     '<div><b>Saldo:</b> ' + formatBRL(data[1]) + '</div>' +
