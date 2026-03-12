@@ -122,60 +122,648 @@ async function handleSaveUser() {
     }
 }
 
+let statsRawData = [];
+let statsFilteredData = [];
+let statsDescriptiveData = { unidades: [], programas: [], elementos: [] };
+let chartsMap = {};
+
+const STATS_PANEL_SELECT_IDS = [
+    "statFilterUO", "statFilterUE", "statFilterAno", "statFilterPrograma", 
+    "statFilterElemento", "statFilterFuncao", "statFilterSubfuncao", 
+    "statFilterProcedencia", "statFilterProjetoAtividade", "statFilterStatus",
+    "statFilterDecisao", "statFilterDocumento", "statFilterSubprojeto",
+    "statFilterNaturezaItem", "statFilterCategoriaEconomica", "statFilterGrupoDespesa",
+    "statFilterModalidadeAplicacao", "statFilterElementoDespesa", "statFilterItemDespesa",
+    "statFilterFonteRecurso"
+];
+
 async function loadStats() {
     const loading = document.getElementById("statsStateLoading");
     const content = document.getElementById("statsContent");
+    const headerActions = document.getElementById("statsHeaderActions");
+
+    if (loading) loading.classList.remove("hidden");
+    if (content) content.classList.add("hidden");
+    if (headerActions) headerActions.classList.add("hidden");
+
+    const sidebar = document.getElementById("statsFiltersSidebar");
+    if (sidebar) sidebar.classList.add("hidden");
+
+    // Add listeners for Saldo inputs
+    ['statFilterSaldoMin', 'statFilterSaldoMax'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', () => applyStatsFilters());
+    });
+
+    try {
+        const [u, p, e] = await Promise.all([
+            fetch("../../assets/json/unidades.json").then(r => r.json()),
+            fetch("../../assets/json/programas.json").then(r => r.json()),
+            fetch("../../assets/json/elemento_item.json").then(r => r.json())
+        ]);
+        statsDescriptiveData.unidades = u;
+        statsDescriptiveData.programas = p;
+        statsDescriptiveData.elementos = e;
+    } catch (err) {
+        console.error("Erro ao carregar dados descritivos para stats:", err);
+    }
 
     const res = await getData(session.user, session.token);
-    loading.classList.add("hidden");
-
     if (!res.ok || !res.data?.success) {
-        content.classList.remove("hidden");
+        if (loading) loading.classList.add("hidden");
         return;
     }
 
-    const statusRes = await checkStatus(session.user, session.token);
-    const statuses = statusRes.data?.data?.status || [];
+    let raw = res.data?.data?.rows || [];
+    
+    // Fallback if ColumnMapper exists
+    if (typeof ColumnMapper !== "undefined") {
+        raw = await ColumnMapper.mapRows(raw);
+    }
 
+    let statuses = [];
+    const statusRes = await checkStatus(session.user, session.token);
+    if (statusRes.ok && statusRes.data?.success) {
+        const data = statusRes.data.data;
+        statuses = Array.isArray(data) ? data : (data?.rows || data?.status || []);
+    }
+
+    enrichStatsRows(raw, statuses);
+    statsRawData = raw;
+
+    STATS_PANEL_SELECT_IDS.forEach(id => {
+        if (typeof renderSkeletonSelect === "function") renderSkeletonSelect(id);
+    });
+
+    populateStatsFilterOptions();
+    renderStatsCheckboxFilters();
+
+    if (loading) loading.classList.add("hidden");
+    if (content) content.classList.remove("hidden");
+    if (headerActions) headerActions.classList.remove("hidden");
+
+    applyStatsFilters();
+}
+
+function renderStatsCheckboxFilters() {
+    const decisaoWrapper = document.getElementById("statCheckboxDecisao");
+    const statusWrapper = document.getElementById("statCheckboxStatus");
+    if (!decisaoWrapper || !statusWrapper) return;
+
+    const decisaoOptions = ["Pendente", "Aceito", "Recusado"];
+    const statusOptions = ["Pendente", "Em Análise", "Concluído", "Ajuste Solicitado"];
+
+    decisaoWrapper.innerHTML = decisaoOptions.map(opt => `
+        <label class="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors group">
+            <input type="checkbox" data-group="Decisao" value="${opt}" onchange="applyStatsFilters()" 
+                class="w-4 h-4 rounded border-2 border-slate-200 text-[#003D5D] focus:ring-[#003D5D]/20 transition-all cursor-pointer">
+            <span class="text-[12px] font-bold text-slate-600 group-hover:text-[#003D5D]">${opt}</span>
+        </label>
+    `).join("");
+
+    statusWrapper.innerHTML = statusOptions.map(opt => `
+        <label class="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors group">
+            <input type="checkbox" data-group="Status" value="${opt}" onchange="applyStatsFilters()" 
+                class="w-4 h-4 rounded border-2 border-slate-200 text-[#003D5D] focus:ring-[#003D5D]/20 transition-all cursor-pointer">
+            <span class="text-[12px] font-bold text-slate-600 group-hover:text-[#003D5D]">${opt}</span>
+        </label>
+    `).join("");
+}
+
+function getStatCheckboxValues(group) {
+    const checks = document.querySelectorAll(`input[data-group="${group}"]:checked`);
+    return Array.from(checks).map(c => c.value);
+}
+
+function toggleStatsMoreFilters() {
+    const content = document.getElementById("statMoreFiltersContent");
+    const icon = document.getElementById("statIconMoreFilters");
+    if (!content || !icon) return;
+    
+    const isHidden = content.classList.contains("hidden");
+    content.classList.toggle("hidden", !isHidden);
+    icon.classList.toggle("rotate-180", isHidden);
+}
+
+function enrichStatsRows(rows, statusData = []) {
+    const sData = Array.isArray(statusData) ? statusData : [];
+    
+    // Create latest status map
     const latestMap = {};
-    statuses.forEach(s => {
-        if (!latestMap[s.rppn] || new Date(s.data_criacao) > new Date(latestMap[s.rppn].data_criacao)) {
-            latestMap[s.rppn] = s;
+    sData.forEach(s => {
+        const doc = String(s.documento || s.rppn || "");
+        if (doc && (!latestMap[doc] || new Date(s.data_criacao) > new Date(latestMap[doc].data_criacao))) {
+            latestMap[doc] = s;
         }
     });
-    const latest = Object.values(latestMap);
 
-    const total = latest.length;
-    const pendentes = latest.filter(s => !s.status || s.status.toLowerCase() === "pendente").length;
-    const emAnalise = latest.filter(s => s.status?.toLowerCase() === "em análise" || (s.acao && (!s.status || s.status.toLowerCase() === "pendente"))).length;
-    const concluidos = latest.filter(s => s.status?.toLowerCase() === "aceito").length;
+    rows.forEach(row => {
+        const doc = String(row.documento || row["Documento Restos a Pagar"] || "");
+        const update = latestMap[doc];
 
-    document.getElementById("statTotal").textContent = total;
-    document.getElementById("statPendentes").textContent = pendentes;
-    document.getElementById("statEmAnalise").textContent = emAnalise;
-    document.getElementById("statConcluidos").textContent = concluidos;
+        row["Status Justificativa"] = update ? (update.status || "Pendente") : "Pendente";
+        row["Decisao"] = update ? (update.decisao || "Pendente") : "Pendente";
+        
+        const uoCode = String(row.uo_codigo || row["Unidade Orçamentária - Código"] || "").trim();
+        const uo = statsDescriptiveData.unidades.find(u => String(u.unidade_orcamentaria_codigo).trim() === uoCode);
+        const ueCode = String(row.ue_codigo || row["Unidade Executora - Código"] || "").trim();
 
-    const bars = [
-        { label: "Pendentes", value: pendentes, total, color: "bg-amber-400" },
-        { label: "Em Análise", value: emAnalise, total, color: "bg-orange-400" },
-        { label: "Concluídos", value: concluidos, total, color: "bg-emerald-400" },
-    ];
+        row["UO_Concatenada"] = `${uoCode} - ${uo?.unidade_orcamentaria_nome || 'N/A'}`;
+        const ue = uo?.unidades_executoras?.find(u => String(u.codigo).trim() === ueCode);
+        row["UE_Concatenada"] = `${ueCode} - ${ue?.nome || 'N/A'}`;
 
-    document.getElementById("statsBarChart").innerHTML = bars.map(b => {
-        const pct = total > 0 ? Math.round((b.value / total) * 100) : 0;
-        return `
-        <div>
-            <div class="flex justify-between mb-2">
-                <span class="text-[12px] font-bold text-slate-600">${b.label}</span>
-                <span class="text-[12px] font-black text-slate-800">${b.value} <span class="text-slate-400 font-medium">(${pct}%)</span></span>
-            </div>
-            <div class="h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div class="${b.color} h-full rounded-full transition-all duration-700" style="width: ${pct}%"></div>
-            </div>
-        </div>`;
-    }).join("");
+        row.uo_codigo = row["UO_Concatenada"];
+        row.ue_codigo = row["UE_Concatenada"];
 
-    content.classList.remove("hidden");
+        const progCode = String(row.programa || row["Programa - Código"] || "");
+        let progDesc = "N/A";
+        for (const entry of statsDescriptiveData.programas) {
+            const p = entry.programas.find(pr => String(pr.codigo) === progCode);
+            if (p) { progDesc = p.descricao; break; }
+        }
+        row["Programa - Descrição"] = progDesc;
+
+        const elemCode = String(row.elemento_item || row["Elemento Item Despesa - Código"] || "");
+        let elemDesc = "N/A";
+        for (const entry of statsDescriptiveData.elementos) {
+            const e = entry.itens.find(i => String(i.codigo) === elemCode);
+            if (e) { elemDesc = e.descricao; break; }
+        }
+        row["Elemento Item - Descrição"] = elemDesc;
+        
+        row.saldoNum = 0;
+        if(typeof parseMoeda === "function"){
+             row.saldoNum = parseMoeda(row.saldo_rppn || row["Saldo Restos a Pagar Não Processado"]);
+        } else {
+             const str = String(row.saldo_rppn || row["Saldo Restos a Pagar Não Processado"] || "0").replace(/\./g, '').replace(',', '.');
+             row.saldoNum = parseFloat(str) || 0;
+        }
+    });
+}
+
+function populateStatsFilterOptions() {
+    const sets = {};
+    STATS_PANEL_SELECT_IDS.forEach(id => sets[id] = new Set());
+
+    statsRawData.forEach(row => {
+        if (row["UO_Concatenada"]) sets.statFilterUO.add(row["UO_Concatenada"]);
+        if (row["UE_Concatenada"]) sets.statFilterUE.add(row["UE_Concatenada"]);
+        if (row.ano_origem || row["Ano Origem Restos a Pagar"]) sets.statFilterAno.add(String(row.ano_origem || row["Ano Origem Restos a Pagar"]));
+        if (row["Programa - Descrição"]) sets.statFilterPrograma.add(row["Programa - Descrição"]);
+        if (row["Elemento Item - Descrição"]) sets.statFilterElemento.add(row["Elemento Item - Descrição"]);
+        
+        const fn = row.funcao || row["Função - Código"];
+        if (fn) sets.statFilterFuncao.add(String(fn));
+        
+        const sf = row.subfuncao || row["Subfunção - Código"];
+        if (sf) sets.statFilterSubfuncao.add(String(sf));
+
+        const pc = row.procedencia || row["Procedência - Código"];
+        if (pc) sets.statFilterProcedencia.add(String(pc));
+
+        const pa = row.projeto_atividade || row["Projeto_Atividade - Código"];
+        if (pa) sets.statFilterProjetoAtividade.add(String(pa));
+
+        if (row["Status Justificativa"]) sets.statFilterStatus.add(row["Status Justificativa"]);
+        if (row["Decisao"]) sets.statFilterDecisao.add(row["Decisao"]);
+
+        // Additional columns
+        if (row.documento) sets.statFilterDocumento.add(String(row.documento));
+        if (row.subprojeto) sets.statFilterSubprojeto.add(String(row.subprojeto));
+        if (row.natureza_item) sets.statFilterNaturezaItem.add(String(row.natureza_item));
+        if (row.categoria_economica) sets.statFilterCategoriaEconomica.add(String(row.categoria_economica));
+        if (row.grupo_despesa) sets.statFilterGrupoDespesa.add(String(row.grupo_despesa));
+        if (row.modalidade_aplicacao) sets.statFilterModalidadeAplicacao.add(String(row.modalidade_aplicacao));
+        if (row.elemento_despesa) sets.statFilterElementoDespesa.add(String(row.elemento_despesa));
+        if (row.item_despesa) sets.statFilterItemDespesa.add(String(row.item_despesa));
+        if (row.fonte_recurso) sets.statFilterFonteRecurso.add(String(row.fonte_recurso));
+    });
+
+    Object.keys(sets).forEach(id => {
+        if (typeof setCustomSelectOptions === "function") {
+            setCustomSelectOptions(id, [...sets[id]].sort());
+            onCustomSelectChange(id, () => applyStatsFilters());
+        }
+    });
+}
+
+function getStatFilterVals(id) {
+    if (typeof getCustomSelectValues === "function") return getCustomSelectValues(id);
+    return [];
+}
+
+function applyStatsFilters() {
+    const f = {
+        uo: getStatFilterVals("statFilterUO"),
+        ue: getStatFilterVals("statFilterUE"),
+        an: getStatFilterVals("statFilterAno"),
+        pr: getStatFilterVals("statFilterPrograma"),
+        el: getStatFilterVals("statFilterElemento"),
+        fn: getStatFilterVals("statFilterFuncao"),
+        sf: getStatFilterVals("statFilterSubfuncao"),
+        pc: getStatFilterVals("statFilterProcedencia"),
+        pa: getStatFilterVals("statFilterProjetoAtividade"),
+        st: getStatFilterVals("statFilterStatus"),
+        cbDec: getStatCheckboxValues("Decisao"),
+        cbSta: getStatCheckboxValues("Status"),
+        sMin: parseFloat(document.getElementById('statFilterSaldoMin')?.value),
+        sMax: parseFloat(document.getElementById('statFilterSaldoMax')?.value),
+        
+        doc: getStatFilterVals("statFilterDocumento"),
+        spr: getStatFilterVals("statFilterSubprojeto"),
+        nat: getStatFilterVals("statFilterNaturezaItem"),
+        cat: getStatFilterVals("statFilterCategoriaEconomica"),
+        grp: getStatFilterVals("statFilterGrupoDespesa"),
+        mod: getStatFilterVals("statFilterModalidadeAplicacao"),
+        edp: getStatFilterVals("statFilterElementoDespesa"),
+        itd: getStatFilterVals("statFilterItemDespesa"),
+        fnt: getStatFilterVals("statFilterFonteRecurso")
+    };
+
+    statsFilteredData = statsRawData.filter(row => {
+        const matchesUO = !f.uo.length || f.uo.includes(row["UO_Concatenada"]);
+        const matchesUE = !f.ue.length || f.ue.includes(row["UE_Concatenada"]);
+        const matchesAN = !f.an.length || f.an.includes(String(row.ano_origem || row["Ano Origem Restos a Pagar"]));
+        const matchesPR = !f.pr.length || f.pr.includes(row["Programa - Descrição"]);
+        const matchesEL = !f.el.length || f.el.includes(row["Elemento Item - Descrição"]);
+        const matchesFN = !f.fn.length || f.fn.includes(String(row.funcao || row["Função - Código"]));
+        const matchesSF = !f.sf.length || f.sf.includes(String(row.subfuncao || row["Subfunção - Código"]));
+        const matchesPC = !f.pc.length || f.pc.includes(String(row.procedencia || row["Procedência - Código"]));
+        const matchesPA = !f.pa.length || f.pa.includes(String(row.projeto_atividade || row["Projeto_Atividade - Código"]));
+        const matchesST = !f.st.length || f.st.includes(row["Status Justificativa"]);
+        
+        const matchesCbDec = !f.cbDec.length || f.cbDec.includes(row["Decisao"]);
+        const matchesCbSta = !f.cbSta.length || f.cbSta.includes(row["Status Justificativa"]);
+
+        const matchesSMin = isNaN(f.sMin) || row.saldoNum >= f.sMin;
+        const matchesSMax = isNaN(f.sMax) || row.saldoNum <= f.sMax;
+
+        // Additional columns matches
+        const matchesDoc = !f.doc.length || f.doc.includes(String(row.documento));
+        const matchesSpr = !f.spr.length || f.spr.includes(String(row.subprojeto));
+        const matchesNat = !f.nat.length || f.nat.includes(String(row.natureza_item));
+        const matchesCat = !f.cat.length || f.cat.includes(String(row.categoria_economica));
+        const matchesGrp = !f.grp.length || f.grp.includes(String(row.grupo_despesa));
+        const matchesMod = !f.mod.length || f.mod.includes(String(row.modalidade_aplicacao));
+        const matchesEdp = !f.edp.length || f.edp.includes(String(row.elemento_despesa));
+        const matchesItd = !f.itd.length || f.itd.includes(String(row.item_despesa));
+        const matchesFnt = !f.fnt.length || f.fnt.includes(String(row.fonte_recurso));
+
+        return matchesUO && matchesUE && matchesAN && matchesPR && matchesEL && 
+               matchesFN && matchesSF && matchesPC && matchesPA && matchesST &&
+               matchesCbDec && matchesCbSta && matchesSMin && matchesSMax &&
+               matchesDoc && matchesSpr && matchesNat && matchesCat && matchesGrp &&
+               matchesMod && matchesEdp && matchesItd && matchesFnt;
+    });
+
+    renderStatsCards();
+    renderStatsCharts();
+}
+
+function toggleStatsFilters() {
+    const sidebar = document.getElementById("statsFiltersSidebar");
+    const btn = document.getElementById("btnOpenStatsFilters");
+    if (!sidebar || !btn) return;
+    
+    const isOpening = sidebar.classList.contains("hidden");
+    sidebar.classList.toggle("hidden", !isOpening);
+    btn.classList.toggle("hidden", isOpening);
+}
+
+function clearStatsFilters() {
+    STATS_PANEL_SELECT_IDS.forEach(id => {
+        if(typeof clearCustomSelect === "function") clearCustomSelect(id);
+    });
+    
+    document.querySelectorAll('input[data-group]').forEach(c => c.checked = false);
+
+    ['statFilterSaldoMin', 'statFilterSaldoMax'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    applyStatsFilters();
+}
+
+function renderStatsCards() {
+    if (!statsFilteredData) return;
+    
+    const total = statsFilteredData.length;
+    let volume = 0;
+    let volumeInscrito = 0;
+    let volumePago = 0;
+    let volumeCancelado = 0;
+    let anosAcumulados = 0;
+    let pendentes = 0;
+    let analise = 0;
+    let concluidos = 0;
+    
+    const anoAtual = new Date().getFullYear();
+
+    statsFilteredData.forEach(row => {
+        const saldo = parseFloat(row.saldo_rppn) || 0;
+        const inscrito = parseFloat(row.valor_inscrito) || 0;
+        const pago = parseFloat(row.valor_pago) || 0;
+        const cancelado = parseFloat(row.valor_cancelado) || 0;
+
+        volume += saldo;
+        volumeInscrito += inscrito;
+        volumePago += pago;
+        volumeCancelado += cancelado;
+        
+        const anoOrigem = parseInt(row.ano_origem || row["Ano Origem Restos a Pagar"]) || anoAtual;
+        const idade = Math.max(0, anoAtual - anoOrigem);
+        anosAcumulados += idade;
+        
+        const st = String(row["Status Justificativa"]).toLowerCase();
+        if(st === "pendente") pendentes++;
+        else if(st === "rejeitado") pendentes++;
+        else if(st === "aceito") concluidos++;
+        else analise++;
+    });
+
+    const idadeMedia = total > 0 ? (anosAcumulados / total).toFixed(1) : "0";
+    const analisePct = total > 0 ? Math.round((analise / total) * 100) : 0;
+    const concluidosPct = total > 0 ? Math.round((concluidos / total) * 100) : 0;
+    const ticketMedio = total > 0 ? (volume / total) : 0;
+
+    // População dos Cards
+    const safeSetText = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
+
+    safeSetText("statCardTotal", total.toLocaleString('pt-BR'));
+    safeSetText("statCardPendentes", pendentes.toLocaleString('pt-BR'));
+    safeSetText("statCardAnalise", analise.toLocaleString('pt-BR'));
+    safeSetText("statCardAnalisePct", `${analisePct}%`);
+    safeSetText("statCardConcluidos", concluidos.toLocaleString('pt-BR'));
+    safeSetText("statCardConcluidosPct", `${concluidosPct}%`);
+
+    let volFormat = "R$ 0,00";
+    let inscFormat = "R$ 0,00";
+    let pagoFormat = "R$ 0,00";
+    let cancFormat = "R$ 0,00";
+    let ticketFormat = "R$ 0,00";
+
+    const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    const fmtCompact = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+
+    volFormat = fmt.format(volume);
+    inscFormat = fmt.format(volumeInscrito);
+    pagoFormat = fmt.format(volumePago);
+    cancFormat = fmt.format(volumeCancelado);
+    ticketFormat = fmt.format(ticketMedio);
+
+    safeSetText("statCardInscrito", inscFormat);
+    safeSetText("statCardPago", pagoFormat);
+    safeSetText("statCardCancelado", cancFormat);
+    
+    const volEl = document.getElementById("statCardVolume");
+    if (volEl) {
+        volEl.textContent = volFormat;
+        volEl.title = volFormat;
+    }
+
+    const volRepEl = document.getElementById("statCardVolumeRep");
+    if (volRepEl) {
+        volRepEl.textContent = volFormat;
+        volRepEl.title = volFormat;
+    }
+
+    const ticketEl = document.getElementById("statCardValorMedio");
+    if (ticketEl) ticketEl.textContent = ticketFormat;
+
+    const idadeEl = document.getElementById("statCardIdade");
+    if (idadeEl) {
+        idadeEl.innerHTML = `${idadeMedia} <span class="text-[12px] font-bold text-amber-600/50 uppercase">anos</span>`;
+    }
+}
+
+function safeRenderApexChart(elementId, options) {
+    if (!window.ApexCharts) return;
+    const el = document.getElementById(elementId);
+    if (!el) return;
+
+    if (chartsMap[elementId]) {
+        chartsMap[elementId].updateOptions(options, true);
+    } else {
+        chartsMap[elementId] = new ApexCharts(el, options);
+        chartsMap[elementId].render();
+    }
+}
+
+function getApexGlobalOptions() {
+    return {
+        fontFamily: 'Inter, sans-serif',
+        chart: {
+            toolbar: { show: false },
+            zoom: { enabled: false },
+            animations: { enabled: true, dynamicAnimation: { speed: 350 } }
+        },
+        colors: ['#003D5D', '#FCAE00', '#D61A21', '#10B981', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B'],
+        tooltip: { theme: 'light' }
+    };
+}
+
+function formatBRL(val) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
+}
+
+function renderStatsCharts() {
+    if (!window.ApexCharts || statsFilteredData.length === 0) return;
+
+    renderParetoChart();
+    renderAnoEvolucaoChart();
+    renderAgingChart();
+    renderBubbleChart();
+}
+
+function renderAnoEvolucaoChart() {
+    const anoMap = {};
+    statsFilteredData.forEach(row => {
+        const ano = row.ano_origem || row["Ano Origem Restos a Pagar"] || "Desconhecido";
+        if (!anoMap[ano]) anoMap[ano] = { qty: 0, val: 0 };
+        anoMap[ano].qty += 1;
+        anoMap[ano].val += row.saldoNum;
+    });
+    const anosSorted = Object.keys(anoMap).sort();
+    
+    safeRenderApexChart("chartAnoLine", {
+        ...getApexGlobalOptions(),
+        series: [{ name: 'Saldo R$', type: 'column', data: anosSorted.map(a => anoMap[a].val) },
+                 { name: 'Registros', type: 'line', data: anosSorted.map(a => anoMap[a].qty) }],
+        chart: { height: 320, type: 'line', ...getApexGlobalOptions().chart },
+        stroke: { width: [0, 4] },
+        labels: anosSorted,
+        yaxis: [{
+            labels: { formatter: (val) => "R$ " + formatBRL(val).replace("R$","").trim() }
+        }, {
+            opposite: true,
+            labels: { formatter: (val) => Math.round(val) }
+        }],
+        tooltip: {
+            shared: true,
+            intersect: false,
+            y: [{ formatter: val => formatBRL(val) }, { formatter: val => val + " registros" }]
+        }
+    });
+}
+
+function renderParetoChart() {
+    const colId = document.getElementById("statParetoColumnSelector")?.value || "UO_Concatenada";
+    const dataMap = {};
+    let totalGlobal = 0;
+
+    statsFilteredData.forEach(row => {
+        const val = String(row[colId] || "N/A");
+        dataMap[val] = (dataMap[val] || 0) + row.saldoNum;
+        totalGlobal += row.saldoNum;
+    });
+
+    const sorted = Object.entries(dataMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15);
+
+    if (sorted.length === 0) return;
+
+    let acc = 0;
+    let thresholdIdx = -1;
+    const paretoAccumulated = sorted.map((item, idx) => {
+        acc += item[1];
+        const pct = (acc / totalGlobal) * 100;
+        if (thresholdIdx === -1 && pct >= 80) thresholdIdx = idx;
+        return pct;
+    });
+
+    const labels = sorted.map(i => i[0].length > 20 ? i[0].substring(0, 17) + '...' : i[0]);
+    
+    const annotations = { points: [] };
+    if (thresholdIdx !== -1) {
+        annotations.points.push({
+            x: labels[thresholdIdx],
+            y: paretoAccumulated[thresholdIdx],
+            yAxisIndex: 1, // Fix: Use the second axis (percentage)
+            marker: {
+                size: 8,
+                fillColor: '#D61A21',
+                strokeColor: '#fff',
+                strokeWidth: 3,
+                shape: "circle"
+            }
+        });
+    }
+
+    safeRenderApexChart("chartParetoDynamic", {
+        ...getApexGlobalOptions(),
+        series: [
+            { name: 'Saldo (R$)', type: 'column', data: sorted.map(i => i[1]) },
+            { name: '% Acumulada', type: 'line', data: paretoAccumulated }
+        ],
+        chart: { height: 320, type: 'line', ...getApexGlobalOptions().chart },
+        stroke: { width: [0, 3], curve: 'smooth' },
+        labels: labels,
+        colors: ['#003D5D', '#D61A21'],
+        annotations: annotations,
+        xaxis: {
+            labels: { rotate: -45, style: { fontSize: '10px' } }
+        },
+        yaxis: [
+            { labels: { formatter: val => "R$ " + (val / 1000000).toFixed(1) + "M" } },
+            { opposite: true, max: 100, labels: { formatter: val => val.toFixed(0) + "%" } }
+        ],
+        tooltip: {
+            shared: true,
+            intersect: false,
+            y: [{ formatter: val => formatBRL(val) }, { formatter: val => val.toFixed(1) + "%" }]
+        }
+    });
+}
+
+function renderAgingChart() {
+    const anoAtual = new Date().getFullYear();
+    const ageBands = { "Até 1 ano": 0, "2 a 3 anos": 0, "4 a 5 anos": 0, "Mais de 5 anos": 0 };
+    
+    statsFilteredData.forEach(row => {
+        const anoOrigem = parseInt(row.ano_origem || row["Ano Origem Restos a Pagar"]) || anoAtual;
+        const idade = Math.max(0, anoAtual - anoOrigem);
+        
+        let band = "";
+        if (idade <= 1) band = "Até 1 ano";
+        else if (idade <= 3) band = "2 a 3 anos";
+        else if (idade <= 5) band = "4 a 5 anos";
+        else band = "Mais de 5 anos";
+        
+        ageBands[band] += row.saldoNum;
+    });
+
+    safeRenderApexChart("chartAgingVolume", {
+        ...getApexGlobalOptions(),
+        series: [{ name: 'Volume Financeiro', data: Object.values(ageBands) }],
+        chart: { type: 'bar', height: 320, ...getApexGlobalOptions().chart },
+        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+        dataLabels: { enabled: false },
+        xaxis: { 
+            categories: Object.keys(ageBands),
+            labels: { formatter: val => "R$ " + (val / 1000000).toFixed(1) + "M" }
+        },
+        colors: ['#FCAE00'],
+        tooltip: { y: { formatter: val => formatBRL(val) } }
+    });
+}
+
+function renderBubbleChart() {
+    const colId = document.getElementById("statBubbleColumnSelector")?.value || "Programa - Descrição";
+    const bubbleMap = {};
+    const anoAtual = new Date().getFullYear();
+
+    statsFilteredData.forEach(row => {
+        const key = String(row[colId] || "Desconhecido");
+        if (!bubbleMap[key]) bubbleMap[key] = { saldo: 0, count: 0, sumIdades: 0 };
+        
+        const anoOrigem = parseInt(row.ano_origem || row["Ano Origem Restos a Pagar"]) || anoAtual;
+        const idade = Math.max(0, anoAtual - anoOrigem);
+        
+        bubbleMap[key].saldo += row.saldoNum;
+        bubbleMap[key].count += 1;
+        bubbleMap[key].sumIdades += idade;
+    });
+
+    const categories = Object.entries(bubbleMap)
+        .filter(item => item[1].count > 0 && item[1].saldo > 0)
+        .map(item => {
+            const idadeMedia = item[1].sumIdades / item[1].count;
+            // X: Idade Media, Y: Saldo, Z (Size): Quantidade
+            return {
+                name: item[0],
+                data: [[idadeMedia, item[1].saldo, item[1].count]]
+            };
+        });
+
+    safeRenderApexChart("chartRiscoBubble", {
+        ...getApexGlobalOptions(),
+        series: categories,
+        chart: { type: 'bubble', height: 320, ...getApexGlobalOptions().chart },
+        dataLabels: { enabled: false },
+        xaxis: { title: { text: "Idade Média (Anos)" }, min: 0, tickAmount: 5 },
+        yaxis: { 
+            title: { text: "Volume Financeiro (R$)" },
+            labels: { formatter: val => "R$ " + (val / 1000000).toFixed(1) + "M" }
+        },
+        tooltip: {
+            custom: function({series, seriesIndex, dataPointIndex, w}) {
+                const data = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
+                const name = w.globals.initialSeries[seriesIndex].name;
+                return '<div class="px-4 py-3 bg-white border outline-none shadow-lg rounded-xl">' +
+                    '<span class="font-black text-[12px] text-[#003D5D] block mb-2 max-w-[200px] truncate" title="'+name+'">' + name + '</span>' +
+                    '<div class="text-[11px] font-medium text-slate-500 space-y-1">' +
+                    '<div><b>Idade Média:</b> ' + data[0].toFixed(1) + ' anos</div>' +
+                    '<div><b>Saldo:</b> ' + formatBRL(data[1]) + '</div>' +
+                    '<div><b>Cadastros:</b> ' + data[2] + '</div>' +
+                    '</div></div>';
+            }
+        },
+        legend: { show: false }
+    });
 }
 
 async function loadLegislacao() {

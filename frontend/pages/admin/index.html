@@ -10,6 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/globals.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
 
 <body class="bg-[#F6F6F6] font-sans antialiased text-[#000000]">
@@ -91,7 +92,7 @@
                             class="hidden flex flex-col items-center justify-center py-32 text-slate-400 text-center px-8">
                             <div
                                 class="w-16 h-16 bg-amber-50 border-2 border-amber-100 rounded-2xl flex items-center justify-center mb-6">
-                                <i class='bx bx-plug text-3xl text-amber-500'></i>
+                                <i class='bx bx-plug text-3xl text-slate-700'></i>
                             </div>
                             <h4 class="text-lg font-black text-slate-700 mb-2">API não implementada</h4>
                             <p class="text-[13px] font-medium text-slate-500 max-w-sm">O endpoint de listagem de
@@ -126,72 +127,440 @@
                 </div>
 
                 <!-- ======== TAB: ESTATÍSTICAS ======== -->
-                <div id="tab-estatisticas" class="tab-content hidden">
+                <div id="tab-estatisticas" class="tab-content relative flex flex-col min-h-0 hidden">
                     <div id="statsStateLoading" class="flex flex-col items-center justify-center py-32 text-slate-400">
                         <i class='bx bx-loader-alt text-5xl animate-spin mb-6 text-[#003D5D]'></i>
                         <p class="font-bold text-slate-600 text-sm">Carregando estatísticas…</p>
                     </div>
-                    <div id="statsContent" class="hidden">
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
+                    <!-- Header de Ações -->
+                    <div id="statsHeaderActions" class="hidden flex justify-end mb-6">
+                        <button id="btnOpenStatsFilters" onclick="toggleStatsFilters()"
+                            class="px-6 py-2.5 bg-white border-2 border-slate-200 text-[#003D5D] text-[11px] font-black uppercase tracking-wider rounded-xl shadow-sm hover:border-[#003D5D]/40 transition-all flex items-center gap-2">
+                            <i class='bx bx-filter-alt text-lg'></i>
+                            <span>Filtros</span>
+                        </button>
+                    </div>
+
+                    <div id="statsContent" class="hidden flex-1 flex flex-col gap-6 min-h-0">
+                        <!-- Horizontal Top Filters Panel -->
+                        <aside id="statsFiltersSidebar"
+                            class="bg-white border-2 border-slate-200 rounded-[1.5rem] shadow-sm flex flex-col shrink-0 transition-all duration-300 hidden overflow-hidden">
                             <div
-                                class="bg-white border-2 border-slate-100 rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-all border-b-4 border-b-[#003D5D]/10">
-                                <div class="flex items-center justify-between mb-4">
-                                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Registros
-                                    </p>
-                                    <div
-                                        class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-[#003D5D]">
-                                        <i class='bx bx-data text-xl'></i>
+                                class="p-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50/30">
+                                <h3
+                                    class="text-[12px] font-black text-[#003D5D] uppercase tracking-wider flex items-center gap-2">
+                                    <i class='bx bx-filter-alt text-slate-400'></i> Filtros Avançados
+                                </h3>
+                                <div class="flex items-center gap-4">
+                                    <button onclick="clearStatsFilters()"
+                                        class="text-[10px] font-bold text-rose-500 hover:text-rose-600 uppercase transition-colors">
+                                        Limpar
+                                    </button>
+                                    <button onclick="toggleStatsFilters()"
+                                        class="text-slate-400 hover:text-[#003D5D] transition-colors p-1 bg-slate-100 rounded-lg">
+                                        <i class='bx bx-x text-lg'></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="p-6">
+                                <!-- Main Filters Grid -->
+                                <div
+                                    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-6">
+                                    <!-- Decisions & Status (Checkboxes in small grids) -->
+                                    <div class="space-y-3">
+                                        <label
+                                            class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Decisão</label>
+                                        <div id="statCheckboxDecisao" class="grid grid-cols-2 gap-1 text-[11px]"></div>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <label
+                                            class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Status</label>
+                                        <div id="statCheckboxStatus" class="grid grid-cols-2 gap-1 text-[11px]"></div>
+                                    </div>
+
+                                    <!-- Core Selects and Saldo -->
+                                    <div class="space-y-2">
+                                        <label
+                                            class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">UO</label>
+                                        <select id="statFilterUO" multiple data-placeholder="Todas"
+                                            class="hidden"></select>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label
+                                            class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">UE</label>
+                                        <select id="statFilterUE" multiple data-placeholder="Todas"
+                                            class="hidden"></select>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label
+                                            class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ano
+                                            Origem</label>
+                                        <select id="statFilterAno" multiple data-placeholder="Todos"
+                                            class="hidden"></select>
+                                    </div>
+
+                                    <div class="space-y-3">
+                                        <label
+                                            class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Saldo
+                                            RPPN (Faixa)</label>
+                                        <div class="flex gap-2">
+                                            <input type="number" id="statFilterSaldoMin" placeholder="Mín"
+                                                class="w-1/2 p-2 bg-slate-50 border-2 border-slate-100 rounded-xl text-[12px] font-bold focus:border-[#003D5D] outline-none transition-all">
+                                            <input type="number" id="statFilterSaldoMax" placeholder="Máx"
+                                                class="w-1/2 p-2 bg-slate-50 border-2 border-slate-100 rounded-xl text-[12px] font-bold focus:border-[#003D5D] outline-none transition-all">
+                                        </div>
                                     </div>
                                 </div>
-                                <p id="statTotal" class="text-4xl font-black text-[#003D5D] tracking-tight">—</p>
-                                <p class="text-[10px] text-slate-400 mt-2 font-medium">Todas as Unidades</p>
-                            </div>
-                            <div
-                                class="bg-white border-2 border-slate-100 rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-all border-b-4 border-b-amber-500/10">
-                                <div class="flex items-center justify-between mb-4">
-                                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pendentes
-                                    </p>
-                                    <div
-                                        class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500">
-                                        <i class='bx bx-time text-xl'></i>
+
+                                <!-- More Filters (Collapsible) -->
+                                <div class="mt-8 pt-6 border-t-2 border-slate-50">
+                                    <button onclick="toggleStatsMoreFilters()" class="flex items-center gap-3 group">
+                                        <span
+                                            class="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-[#003D5D] transition-colors">Mais
+                                            Filtros</span>
+                                        <i id="statIconMoreFilters"
+                                            class='bx bx-chevron-down text-slate-400 group-hover:text-[#003D5D] transition-all'></i>
+                                    </button>
+
+                                    <div id="statMoreFiltersContent" class="hidden mt-6">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Programa</label>
+                                                <select id="statFilterPrograma" multiple data-placeholder="Todos"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Elemento
+                                                    Item</label>
+                                                <select id="statFilterElemento" multiple data-placeholder="Todos"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Função</label>
+                                                <select id="statFilterFuncao" multiple data-placeholder="Todas"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Subfunção</label>
+                                                <select id="statFilterSubfuncao" multiple data-placeholder="Todas"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Procedência</label>
+                                                <select id="statFilterProcedencia" multiple data-placeholder="Todas"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Projeto
+                                                    Atividade</label>
+                                                <select id="statFilterProjetoAtividade" multiple
+                                                    data-placeholder="Todos" class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Documento</label>
+                                                <select id="statFilterDocumento" multiple data-placeholder="Todos"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Subprojeto</label>
+                                                <select id="statFilterSubprojeto" multiple data-placeholder="Todos"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Natureza
+                                                    Item</label>
+                                                <select id="statFilterNaturezaItem" multiple data-placeholder="Todas"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Categoria
+                                                    Econômica</label>
+                                                <select id="statFilterCategoriaEconomica" multiple
+                                                    data-placeholder="Todas" class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Grupo
+                                                    Despesa</label>
+                                                <select id="statFilterGrupoDespesa" multiple data-placeholder="Todos"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Modalidade
+                                                    Aplicação</label>
+                                                <select id="statFilterModalidadeAplicacao" multiple
+                                                    data-placeholder="Todas" class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Elemento
+                                                    Despesa</label>
+                                                <select id="statFilterElementoDespesa" multiple data-placeholder="Todos"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Item
+                                                    Despesa</label>
+                                                <select id="statFilterItemDespesa" multiple data-placeholder="Todos"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Fonte
+                                                    Recurso</label>
+                                                <select id="statFilterFonteRecurso" multiple data-placeholder="Todas"
+                                                    class="hidden"></select>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <label
+                                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Status
+                                                    (Original)</label>
+                                                <select id="statFilterStatus" multiple data-placeholder="Todos"
+                                                    class="hidden"></select>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <p id="statPendentes" class="text-4xl font-black text-amber-500 tracking-tight">—</p>
-                                <p class="text-[10px] text-amber-600/60 mt-2 font-medium">Aguardando decisão</p>
                             </div>
-                            <div
-                                class="bg-white border-2 border-slate-100 rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-all border-b-4 border-b-orange-500/10">
-                                <div class="flex items-center justify-between mb-4">
-                                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Em Análise
-                                    </p>
-                                    <div
-                                        class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500">
-                                        <i class='bx bx-search-alt text-xl'></i>
+                        </aside>
+
+                        <!-- Dados e Gráficos -->
+                        <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-6 w-full pr-2">
+
+                            <!-- PRIMEIRA LINHA: Visão Geral e Operacional -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
+                                <!-- Card: Visão Geral -->
+                                <div
+                                    class="bg-white border-2 border-slate-100 rounded-[2.5rem] p-7 shadow-sm hover:shadow-lg transition-all border-b-4 border-b-[#003D5D]/20">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div
+                                            class="w-11 h-11 bg-slate-50 border-2 border-slate-100 text-[#003D5D] rounded-2xl flex items-center justify-center shadow-sm">
+                                            <i class='bx bx-data text-xl'></i>
+                                        </div>
+                                        <span
+                                            class="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">Visão
+                                            Geral</span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-baseline gap-2">
+                                            <span id="statCardTotal"
+                                                class="text-3xl font-black text-[#003D5D] tracking-tight truncate">—</span>
+                                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                                Regs.</p>
+                                        </div>
+                                        <div class="pt-2 border-t border-slate-50 mt-2">
+                                            <span id="statCardVolume"
+                                                class="text-xl font-black text-slate-700 tracking-tight truncate block">R$
+                                                0,00</span>
+                                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                                Saldo Acumulado</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <p id="statEmAnalise" class="text-4xl font-black text-orange-500 tracking-tight">—</p>
-                                <p class="text-[10px] text-orange-600/70 mt-2 font-medium">Aguardando avaliação</p>
-                            </div>
-                            <div
-                                class="bg-white border-2 border-slate-100 rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-all border-b-4 border-b-emerald-500/10">
-                                <div class="flex items-center justify-between mb-4">
-                                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Concluídos
-                                    </p>
-                                    <div
-                                        class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500">
-                                        <i class='bx bx-check-double text-xl'></i>
+
+                                <!-- Card: Situação Atual (Status das Justificativas) -->
+                                <div
+                                    class="bg-white border-2 border-slate-100 rounded-[2.5rem] p-7 shadow-sm hover:shadow-lg transition-all border-b-4 border-b-emerald-500/20 md:col-span-1 lg:col-span-2">
+                                    <div class="flex items-center justify-between mb-6">
+                                        <div
+                                            class="w-11 h-11 bg-emerald-50 border-2 border-emerald-100 text-emerald-500 rounded-2xl flex items-center justify-center shadow-sm">
+                                            <i class='bx bx-check-double text-xl'></i>
+                                        </div>
+                                        <span
+                                            class="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">Situação
+                                            Atual</span>
+                                    </div>
+                                    <div class="flex items-center justify-between px-2 gap-4">
+                                        <div class="flex-1 flex flex-col items-center text-center">
+                                            <span id="statCardPendentes"
+                                                class="text-3xl font-black text-[#003D5D] tracking-tight mb-2">—</span>
+                                            <p
+                                                class="text-[8px] font-black text-amber-600 uppercase tracking-widest leading-tight">
+                                                Pendentes de<br>Justificativa</p>
+                                        </div>
+                                        <div class="w-px h-12 bg-slate-100"></div>
+                                        <div class="flex-1 flex flex-col items-center text-center">
+                                            <div class="flex items-baseline gap-2">
+                                                <span id="statCardAnalise"
+                                                    class="text-3xl font-black text-slate-700 tracking-tight mb-2">—</span>
+                                                <span id="statCardAnalisePct"
+                                                    class="text-[12px] font-black text-slate-700/60 font-mono">0%</span>
+                                            </div>
+                                            <p
+                                                class="text-[8px] font-black text-blue-600 uppercase tracking-widest leading-tight">
+                                                Em análise<br>pela SCCG</p>
+                                        </div>
+                                        <div class="w-px h-12 bg-slate-100"></div>
+                                        <div class="flex-1 flex flex-col items-center text-center">
+                                            <div class="flex items-baseline gap-2">
+                                                <span id="statCardConcluidos"
+                                                    class="text-3xl font-black text-slate-700 tracking-tight">—</span>
+                                                <span id="statCardConcluidosPct"
+                                                    class="text-[12px] font-black text-slate-700/60 font-mono">0%</span>
+                                            </div>
+                                            <p
+                                                class="text-[8px] font-black text-slate-700 uppercase tracking-widest leading-tight">
+                                                Justificativas<br>Concluídas</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <p id="statConcluidos" class="text-4xl font-black text-emerald-500 tracking-tight">—</p>
-                                <p class="text-[10px] text-emerald-600/70 mt-2 font-medium">Aprovados</p>
+
+                                <!-- Card: Idade & Fluxo -->
+                                <div
+                                    class="bg-white border-2 border-slate-100 rounded-[2.5rem] p-7 shadow-sm hover:shadow-lg transition-all border-b-4 border-b-amber-500/20">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div
+                                            class="w-11 h-11 bg-amber-50 border-2 border-amber-100 text-amber-500 rounded-2xl flex items-center justify-center shadow-sm">
+                                            <i class='bx bx-time text-xl'></i>
+                                        </div>
+                                        <span
+                                            class="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">Métricas
+                                            de Fluxo</span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-baseline gap-2">
+                                            <span id="statCardIdade"
+                                                class="text-3xl font-black text-slate-700 tracking-tight truncate">—</span>
+                                            <p class="text-[9px] font-bold text-slate-700 uppercase tracking-wider">Anos
+                                                de Idade Média</p>
+                                        </div>
+                                        <div class="pt-2 border-t border-slate-50 mt-2">
+                                            <span id="statCardValorMedio"
+                                                class="text-xl font-black text-slate-700 tracking-tight block truncate">—</span>
+                                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                                Ticket Médio p/ Registro</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="bg-white border-2 border-slate-100 rounded-[2.5rem] p-10 shadow-sm">
-                            <h3 class="text-[16px] font-black text-[#003D5D] mb-8 flex items-center gap-3">
-                                <i class='bx bx-pie-chart-alt-2 text-2xl'></i>
-                                Distribuição de Status
-                            </h3>
-                            <div id="statsBarChart" class="space-y-6"></div>
+
+                            <!-- SEGUNDA LINHA: Detalhamento de Valores (4 Cards) -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
+                                <!-- Card: Inscrito -->
+                                <div
+                                    class="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm border-b-4 border-b-slate-400/20">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor
+                                            Inscrito</p>
+                                        <i class='bx bx-archive-in text-slate-300 text-xl'></i>
+                                    </div>
+                                    <p id="statCardInscrito"
+                                        class="text-2xl font-black text-slate-700 tracking-tight truncate">—</p>
+                                </div>
+                                <!-- Card: Pago -->
+                                <div
+                                    class="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm border-b-4 border-b-emerald-400/20">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor
+                                            Pago</p>
+                                        <i class='bx bx-check-circle text-emerald-300 text-xl'></i>
+                                    </div>
+                                    <p id="statCardPago"
+                                        class="text-2xl font-black text-slate-700 tracking-tight truncate">—</p>
+                                </div>
+                                <!-- Card: Cancelado -->
+                                <div
+                                    class="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm border-b-4 border-b-rose-400/20">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor
+                                            Cancelado</p>
+                                        <i class='bx bx-x-circle text-rose-300 text-xl'></i>
+                                    </div>
+                                    <p id="statCardCancelado"
+                                        class="text-2xl font-black text-slate-700 tracking-tight truncate">—</p>
+                                </div>
+                                <!-- Card: Saldo Remanescente (Repetindo Volume) -->
+                                <div
+                                    class="bg-slate-50 border-2 border-indigo-100 rounded-[2rem] p-6 shadow-sm border-b-4 border-b-indigo-400/20">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                            Saldo Remanescente</p>
+                                        <i class='bx bx-wallet text-indigo-300 text-xl'></i>
+                                    </div>
+                                    <p id="statCardVolumeRep"
+                                        class="text-2xl font-black text-slate-700 tracking-tight truncate">—</p>
+                                </div>
+                            </div>
+
+                            <!-- Gráficos Principais (Foco em Análise de Concentração e Risco) -->
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 shrink-0">
+                                <!-- Pareto (Concentração) -->
+                                <div class="bg-white border-2 border-slate-100 rounded-[2.5rem] p-8 shadow-sm">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h3 class="text-[16px] font-black text-[#003D5D] flex items-center gap-3"><i
+                                                class='bx bx-line-chart text-2xl'></i> Curva de Pareto (80/20)</h3>
+                                        <select id="statParetoColumnSelector" onchange="renderStatsCharts()"
+                                            class="text-[10px] font-black uppercase text-[#003D5D] bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 outline-none focus:border-[#003D5D] transition-all cursor-pointer">
+                                            <option value="UO_Concatenada" selected>UO</option>
+                                            <option value="UE_Concatenada">UE</option>
+                                            <option value="Programa - Descrição">Programa</option>
+                                            <option value="Elemento Item - Descrição">Elemento Item</option>
+                                            <option value="natureza_item">Natureza Item</option>
+                                            <option value="fonte_recurso">Fonte Recurso</option>
+                                            <option value="procedencia">Procedência</option>
+                                            <option value="Decisao">Decisão</option>
+                                            <option value="Status Justificativa">Status</option>
+                                        </select>
+                                    </div>
+                                    <p class="text-[11px] font-bold text-slate-400 mx-9 mb-4">Análise de Concentração
+                                        Financeira: O ponto marcado identifica o limiar de 80% do volume acumulado.</p>
+                                    <div id="chartParetoDynamic" class="w-full h-80"></div>
+                                </div>
+
+                                <!-- Dispersão (Bolhas / Risco) -->
+                                <div class="bg-white border-2 border-slate-100 rounded-[2.5rem] p-8 shadow-sm">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h3 class="text-[16px] font-black text-[#003D5D] flex items-center gap-3"><i
+                                                class='bx bx-scatter-chart text-2xl'></i> Dispersão de Risco</h3>
+                                        <select id="statBubbleColumnSelector" onchange="renderStatsCharts()"
+                                            class="text-[10px] font-black uppercase text-[#003D5D] bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 outline-none focus:border-[#003D5D] transition-all cursor-pointer">
+                                            <option value="Programa - Descrição" selected>Programa</option>
+                                            <option value="UO_Concatenada">UO</option>
+                                            <option value="UE_Concatenada">UE</option>
+                                            <option value="Elemento Item - Descrição">Elemento Item</option>
+                                            <option value="natureza_item">Natureza Item</option>
+                                            <option value="fonte_recurso">Fonte Recurso</option>
+                                            <option value="procedencia">Procedência</option>
+                                        </select>
+                                    </div>
+                                    <p class="text-[11px] font-bold text-slate-400 mx-9 mb-4">Eixo X: Idade Média | Eixo
+                                        Y: Saldo Financeiro | Bolha: Quantidade de Registros</p>
+                                    <div id="chartRiscoBubble" class="w-full h-80"></div>
+                                </div>
+
+                                <!-- Aging RPPN -->
+                                <div class="bg-white border-2 border-slate-100 rounded-[2.5rem] p-8 shadow-sm">
+                                    <h3 class="text-[16px] font-black text-[#003D5D] mb-1 flex items-center gap-3"><i
+                                            class='bx bx-layer text-2xl'></i> Envelhecimento dos RPPNs (Aging)</h3>
+                                    <p class="text-[11px] font-bold text-slate-400 mx-9 mb-4">Volume monetário
+                                        classificado pela idade da despesa original</p>
+                                    <div id="chartAgingVolume" class="w-full h-80"></div>
+                                </div>
+
+                                <!-- Evolução Ano de Origem -->
+                                <div class="bg-white border-2 border-slate-100 rounded-[2.5rem] p-8 shadow-sm">
+                                    <h3 class="text-[16px] font-black text-[#003D5D] mb-4 flex items-center gap-3"><i
+                                            class='bx bx-bar-chart-alt-2 text-2xl'></i> Evolução Saldo por Ano de Origem
+                                    </h3>
+                                    <div id="chartAnoLine" class="w-full h-80"></div>
+                                </div>
+                            </div>
+
+                            <div class="h-6 shrink-0 border-transparent border"></div>
                         </div>
                     </div>
                 </div>
@@ -743,7 +1112,10 @@
     </div>
     <script src="../../components/core/api.js"></script>
     <script src="../../components/core/session.js"></script>
+    <script src="../../components/core/mapper.js"></script>
+    <script src="../../components/core/csv.js"></script>
     <script src="../../components/ui/admin-select.js"></script>
+    <script src="../../components/ui/custom-select.js"></script>
     <script src="../../components/ui/toast.js"></script>
     <script src="../../components/layout/layout.js"></script>
     <script src="./script.js"></script>
