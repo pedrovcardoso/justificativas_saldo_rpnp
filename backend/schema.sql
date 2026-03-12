@@ -84,3 +84,8 @@ CREATE TABLE IF NOT EXISTS tipos_justificativa (
   campos JSON NOT NULL,
   ativo BOOLEAN NOT NULL DEFAULT TRUE
 );
+
+CREATE TABLE IF NOT EXISTS config (
+  chave VARCHAR(255) PRIMARY KEY,
+  valor TEXT NOT NULL
+);

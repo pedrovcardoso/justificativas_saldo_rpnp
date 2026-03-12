@@ -1,7 +1,22 @@
 const API_BASE = "http://localhost:3000/api";
+let AUTH_FLOW_URL = null;
+
+async function getAuthUrl() {
+    if (AUTH_FLOW_URL) return AUTH_FLOW_URL;
+    try {
+        const res = await fetch(`${API_BASE}/config`);
+        const data = await res.json();
+        if (data.success && data.data.AUTH_FLOW_URL) {
+            AUTH_FLOW_URL = data.data.AUTH_FLOW_URL;
+            return AUTH_FLOW_URL;
+        }
+    } catch (e) {
+        console.error("Erro ao carregar configuração:", e);
+    }
+    return null;
+}
 
 const API_URLS = {
-    auth: `${API_BASE}/auth`,
     saveJustificativa: `${API_BASE}/justificativas/justificar`,
     avaliarStatus: `${API_BASE}/justificativas/avaliar_status`,
     getData: `${API_BASE}/data/get_data`,
@@ -43,19 +58,23 @@ async function apiCall(url, body, method = "POST", isFormData = false) {
 }
 
 async function sendOtp(user) {
-    return apiCall(API_URLS.auth, { endpoint: "send_otp", user });
+    const url = await getAuthUrl();
+    return apiCall(url, { endpoint: "send_otp", user });
 }
 
 async function validateOtp(user, otp_code) {
-    return apiCall(API_URLS.auth, { endpoint: "validate_otp", user, otp_code });
+    const url = await getAuthUrl();
+    return apiCall(url, { endpoint: "validate_otp", user, otp_code });
 }
 
 async function validateSession(user, token) {
-    return apiCall(API_URLS.auth, { endpoint: "validate_session", user, token });
+    const url = await getAuthUrl();
+    return apiCall(url, { endpoint: "validate_session", user, token });
 }
 
 async function logout(user, token) {
-    return apiCall(API_URLS.auth, { endpoint: "logout", user, token });
+    const url = await getAuthUrl();
+    return apiCall(url, { endpoint: "logout", user, token });
 }
 
 async function justificar(user, token, rppn, acao, justificativa) {
@@ -89,15 +108,19 @@ async function checkStatus(user, token) {
 
 // Admin APIs
 async function getUsers(user, token) {
-    return apiCall(`${API_URLS.adminUsers}?user=${encodeURIComponent(user)}&token=${encodeURIComponent(token)}`, null, "GET");
+    const url = await getAuthUrl();
+    const res = await apiCall(url, { endpoint: 'get_users', user, token });
+    return res;
 }
 
 async function createUser(user, token, payload) {
-    return apiCall(API_URLS.adminUsers, { ...payload, user, token, action: "create" });
+    const url = await getAuthUrl();
+    return apiCall(url, { ...payload, user, token, endpoint: 'create_user' });
 }
 
 async function updateUser(user, token, payload) {
-    return apiCall(API_URLS.adminUsers, { ...payload, user, token, action: "update" });
+    const url = await getAuthUrl();
+    return apiCall(url, { ...payload, user, token, endpoint: 'update_user' });
 }
 
 async function getNotifications(user, token) {
