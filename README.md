@@ -1,6 +1,6 @@
-# Gerenciador de Justificativas de Saldo RPPN
+# Gerenciador de Justificativas de Saldo RPNP
 
-Sistema para gestão, análise e acompanhamento de **Restos a Pagar Não Processados (RPPN)**, permitindo o registro de justificativas técnicas para manutenção ou cancelamento de saldos orçamentários.
+Sistema para gestão, análise e acompanhamento de **Restos a Pagar Não Processados (RPNP)**, permitindo o registro de justificativas técnicas para manutenção ou cancelamento de saldos orçamentários.
 
 ## Desenvolvimento
 - Pedro Henrique Vieira Cardoso
@@ -30,7 +30,7 @@ A arquitetura foi projetada para ser modular e desacoplada, garantindo que o pro
 
 ### Camada de Backend
 - **Fluxos de Dados (Next.js)**: Centraliza a comunicação com o banco de dados e expõe endpoints para o frontend.
-- **Processamento de CSV/Lote**: Capaz de processar grandes volumes de dados de RPPN e realizar o "enrichment" (enriquecimento) dos dados antes da exibição.
+- **Processamento de CSV/Lote**: Capaz de processar grandes volumes de dados de RPNP e realizar o "enrichment" (enriquecimento) dos dados antes da exibição.
 
 ### Estrutura de Pastas
 - `frontend/`: Contém os arquivos estáticos e componentes da interface.

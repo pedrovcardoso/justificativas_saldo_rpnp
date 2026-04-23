@@ -1,4 +1,4 @@
-# Arquitetura de Filtros — Dashboard RPPN
+# Arquitetura de Filtros — Dashboard RPNP
 
 ## Visão Geral
 
@@ -43,7 +43,7 @@ A página do dashboard utiliza um sistema de filtragem em cascata baseado em **3
 | **Status do Processo** | `filterStatusProcesso` | Multi-select | Representa o estado final do fluxo. |
 | **Decisão** | `filterDecisao` | Multi-select | `Manter`, `Cancelar` ou `(em branco)`. |
 | **Avaliação** | `filterAvaliacao` | Multi-select | `Pendente`, `Aceito`, `Rejeitado` ou `(em branco)`. |
-| **Saldo (Mín/Máx)** | `filterSaldoMin` / `Max` | Numérico | Filtra pelo valor do Saldo RPPN. |
+| **Saldo (Mín/Máx)** | `filterSaldoMin` / `Max` | Numérico | Filtra pelo valor do Saldo RPNP. |
 
 ### Comportamento
 - Os filtros do painel são **independentes** entre si em termos de opções (as opções do select mostram sempre todos os valores possíveis do banco de dados).
