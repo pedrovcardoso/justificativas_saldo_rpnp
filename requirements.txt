@@ -1,0 +1,26 @@
+# ==========================================
+# DEPENDÊNCIAS DO PROJETO (BACKEND & FRONTEND)
+# ==========================================
+
+# --- BACKEND (Next.js / Node.js) ---
+# Gerenciado via: backend/package.json
+next==16.1.6
+react==19.2.3
+react-dom==19.2.3
+mysql2==3.18.2
+tailwindcss==4.0.0
+@tailwindcss/postcss==4.0.0
+
+# --- FRONTEND (HTML Estático) ---
+# Utilizados via CDN no momento
+tailwindcss-cdn==3.4.1
+boxicons==2.1.4
+sheetjs-xlsx==0.20.1
+xlsx-js-style==1.2.0
+chart-js==4.x
+chartjs-plugin-datalabels==2.x
+apexcharts==3.x
+
+# --- INFRAESTRUTURA ---
+node-js>=18.0.0
+mysql-server>=8.0
