@@ -1,76 +1,74 @@
-import { getConfig } from './config';
+import { SignJWT, jwtVerify } from 'jose';
+import db from './db';
 
-async function validateSession(user, token) {
-    const AUTH_FLOW_URL = await getConfig('AUTH_FLOW_URL');
-    try {
-        const response = await fetch(AUTH_FLOW_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ endpoint: 'validate_session', user, token }),
-        });
+function getJwtSecret() {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT_SECRET não configurado.');
+    return new TextEncoder().encode(secret);
+}
 
-        const data = await response.json();
+export async function signToken(payload) {
+    const expiryHours = Number(process.env.JWT_EXPIRY_HOURS);
+    if (!expiryHours) throw new Error("JWT_EXPIRY_HOURS não configurado no .env.local.");
+    return new SignJWT(payload)
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(`${expiryHours}h`)
+        .sign(getJwtSecret());
+}
 
-        if (!data.success) {
-            return { valid: false, status: response.status, error: data.error };
-        }
+async function verifyToken(token) {
+    const { payload } = await jwtVerify(token, getJwtSecret());
+    return payload;
+}
 
-        return { valid: true, role: data.data.role, uo: data.data.uo };
-    } catch (e) {
-        console.warn('Auth flow unreachable, bypassing for presentation:', e.message);
-        return { valid: true, role: 'admin', uo: 'ALL' };
-    }
+function extractBearer(request) {
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
+    if (!authHeader.startsWith('Bearer ')) return null;
+    return authHeader.slice(7);
 }
 
 export async function requireAuth(request) {
-    let user, token, body = {};
-    const headers = request.headers || new Map();
-    const contentType = (typeof headers.get === 'function' ? headers.get('content-type') : headers['content-type']) || '';
+    const token = extractBearer(request);
+    if (!token) {
+        return { error: 'Token ausente.', status: 401, body: null };
+    }
 
+    let payload;
     try {
+        payload = await verifyToken(token);
+    } catch {
+        return { error: 'Token inválido ou expirado.', status: 401, body: null };
+    }
+
+    const [rows] = await db.query(
+        'SELECT role, uo FROM usuarios WHERE username = ? AND ativo = TRUE',
+        [payload.username]
+    );
+
+    if (rows.length === 0) {
+        return { error: 'Usuário sem acesso ao sistema.', status: 403, body: null };
+    }
+
+    let body = {};
+    try {
+        const cloned = request.clone();
+        const contentType = request.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
-            body = await request.json().catch(() => ({}));
-            user = body.user;
-            token = body.token;
+            body = await cloned.json().catch(() => ({}));
         } else if (contentType.includes('multipart/form-data')) {
-            const cloned = request.clone();
-            const formData = await cloned.formData().catch(() => null);
-            if (formData) {
-                user = formData.get('user');
-                token = formData.get('token');
-                body = formData;
-            }
+            body = await cloned.formData().catch(() => new FormData());
         }
+    } catch { }
 
-        // Se não encontrou no body (ou não é JSON/FormData), verifica no header (authorization) ou query string
-        if (!user || !token) {
-            const url = new URL(request.url);
-            user = user || url.searchParams.get('user');
-            token = token || url.searchParams.get('token');
-        }
-    } catch (e) { }
-
-    if (!user || !token) {
-        return { error: 'Usuário ou token ausente.', status: 400, body: null };
-    }
-
-    const session = await validateSession(user, token);
-
-    if (!session.valid) {
-        return { error: session.error || 'Sessão inválida.', status: session.status || 401, body: null };
-    }
-
-    return { error: null, body, user, role: session.role, uo: session.uo };
+    return { error: null, body, user: payload.username, role: rows[0].role, uo: rows[0].uo };
 }
 
 export async function requireAdmin(request) {
     const result = await requireAuth(request);
-
     if (result.error) return result;
-
     if (result.role !== 'admin') {
         return { error: 'Acesso negado.', status: 403, body: null };
     }
-
     return result;
 }

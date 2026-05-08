@@ -1,0 +1,416 @@
+openapi: 3.0.3
+info:
+  title: APIs do Backend do Tesouro - STEFAN
+  version: 1.0.0
+  description: |
+    Especificação OpenAPI (YAML) das rotas do backend central do Tesouro para uso pelos sistemas do ecossistema STEFAN.
+
+    Este backend central expõe serviços reutilizáveis para:
+    - validação de tokens JWT emitidos pelo Keycloak;
+    - validação de acesso de usuários aos sistemas;
+    - envio automático de e-mails institucionais.
+
+    **Importante sobre o fluxo de consumo**:
+    - O endpoint `/validar-token` foi desenhado para consumo **de backend para backend**.
+    - O frontend do sistema de origem autentica o usuário e envia o `access_token` ao backend do próprio sistema.
+    - O backend do sistema de origem chama então o backend central do Tesouro para validar:
+      - se o token é válido;
+      - se o sistema de origem é reconhecido;
+      - se a `clientKey` confere;
+      - se o usuário pode acessar aquele sistema.
+    - Assumiu-se que a rota `/enviar-email` recebe `clientKey` no body.
+    - Caso a implementação final da rota de e-mail também exija `idSistema`, basta ajustar o schema `EmailRequest`.
+
+servers:
+  - url: http://172.23.213.22:5050
+    description: Servidor do backend central do Tesouro
+
+tags:
+  - name: Autenticação e Autorização
+    description: |
+      Rotas centrais para validação de token e validação de acesso aos sistemas do STEFAN.
+      A rota `/validar-token` é voltada principalmente para consumo backend-to-backend.
+  - name: Mensageria
+    description: Rotas centrais de envio automático de e-mail institucional
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: Token inválido.
+      required: [status, message]
+
+    ValidarAcessoSistemaRequest:
+      type: object
+      properties:
+        id_sistema:
+          type: integer
+          format: int32
+          example: 1
+          description: Código do sistema a ser validado.
+      required: [id_sistema]
+
+    ValidarAcessoSistemaSuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Usuário autorizado.
+        preferred_username:
+          type: string
+          example: '11772712655'
+          description: CPF/CNPJ do usuário autenticado.
+        id_sistema:
+          type: integer
+          example: 1
+        autorizado:
+          type: boolean
+          example: true
+      required: [status, message, preferred_username, id_sistema, autorizado]
+
+    ValidarAcessoSistemaForbiddenResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: forbidden
+        message:
+          type: string
+          example: Usuário sem acesso ao sistema.
+        preferred_username:
+          type: string
+          example: '11772712655'
+        id_sistema:
+          type: integer
+          example: 1
+        autorizado:
+          type: boolean
+          example: false
+      required: [status, message, preferred_username, id_sistema, autorizado]
+
+    ValidarTokenRequest:
+      type: object
+      properties:
+        idSistema:
+          type: integer
+          format: int32
+          example: 1
+          description: Código do sistema de origem.
+        clientKey:
+          type: string
+          example: CLIENT_KEY_REPASSADA_PELA_ASSESSORIA_DO_TESOURO
+          description: Chave do sistema de origem repassada pela Assessoria do Tesouro.
+      required: [idSistema, clientKey]
+
+    ValidarTokenSuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        valido:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Token válido e usuário autorizado para o sistema.
+        usuario:
+          type: object
+          properties:
+            preferred_username:
+              type: string
+              example: '11772712655'
+            name:
+              type: string
+              example: Pedro Vinicius Campos
+            email:
+              type: string
+              example: pedro.campos@fazenda.mg.gov.br
+          required: [preferred_username]
+        token:
+          type: object
+          properties:
+            azp:
+              type: string
+              example: soma-login
+            aud:
+              type: array
+              items:
+                type: string
+              example: [realm-management]
+            exp:
+              type: integer
+              example: 1773859095
+            iss:
+              type: string
+              example: https://keycloak-hom.fazenda.mg.gov.br/realms/tesouro
+        sistema:
+          type: object
+          properties:
+            idSistema:
+              type: integer
+              example: 1
+            clientKeyValida:
+              type: boolean
+              example: true
+        autorizado:
+          type: boolean
+          example: true
+      required: [status, valido, message, usuario, sistema, autorizado]
+
+    ValidarTokenForbiddenResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: forbidden
+        valido:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Usuário sem acesso ao sistema.
+        usuario:
+          type: object
+          properties:
+            preferred_username:
+              type: string
+              example: '11772712655'
+            name:
+              type: string
+              example: Pedro Vinicius Campos
+            email:
+              type: string
+              example: pedro.campos@fazenda.mg.gov.br
+        sistema:
+          type: object
+          properties:
+            idSistema:
+              type: integer
+              example: 1
+            clientKeyValida:
+              type: boolean
+              example: true
+        autorizado:
+          type: boolean
+          example: false
+      required: [status, valido, message, sistema, autorizado]
+
+    EmailRequest:
+      type: object
+      properties:
+        clientKey:
+          type: string
+          example: CLIENT_KEY_REPASSADA_PELA_ASSESSORIA_DO_TESOURO
+          description: Chave do sistema de origem repassada pela Assessoria do Tesouro.
+        emailDestinatario:
+          type: array
+          items:
+            type: string
+            format: email
+          minItems: 1
+          example:
+            - pedro.campos@fazenda.mg.gov.br
+        tituloMensagem:
+          type: string
+          example: Teste de envio via API
+        corpoMensagem:
+          type: string
+          example: Olá! Este é um teste de envio de e-mail pelo backend do Tesouro.
+        cdTemplateMsg:
+          type: integer
+          format: int32
+          default: 0
+          example: 1
+          description: |
+            Código do template.
+            - 0: sem template específico
+            - 1: template oficial da SEF
+        qtdeDiasAntesExpurgo:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 365
+          example: 365
+      required: [clientKey, emailDestinatario, tituloMensagem, corpoMensagem]
+
+    EnviarEmailResponse:
+      type: object
+      properties:
+        sucesso:
+          type: boolean
+          example: true
+        status_code_api_email:
+          type: integer
+          example: 202
+        resposta_api_email:
+          type: string
+          example: Mensagem aceita para processamento
+      required: [sucesso, status_code_api_email, resposta_api_email]
+
+paths:
+  /validar-acesso-sistema:
+    post:
+      tags: [Autenticação e Autorização]
+      summary: Valida se o usuário autenticado possui acesso a um sistema
+      description: |
+        Valida o `access_token` recebido no cabeçalho `Authorization`, extrai o `preferred_username`
+        (CPF/CNPJ do usuário autenticado) e verifica no banco se o usuário possui acesso ao sistema informado.
+
+        Este endpoint pode ser consumido por sistemas que desejam apenas confirmar se um usuário autenticado
+        possui ou não acesso a um sistema específico, sem validar `clientKey`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidarAcessoSistemaRequest'
+      responses:
+        '200':
+          description: Usuário autorizado para o sistema.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidarAcessoSistemaSuccessResponse'
+        '400':
+          description: Payload inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Token ausente, inválido ou expirado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuário sem acesso ao sistema.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidarAcessoSistemaForbiddenResponse'
+
+  /validar-token:
+    post:
+      tags: [Autenticação e Autorização]
+      summary: Valida token, sistema de origem e autorização do usuário
+      description: |
+        Endpoint central de validação **backend-to-backend**.
+
+        Este endpoint foi desenhado para ser chamado pelo **backend de um sistema de origem**, e não diretamente
+        pelo frontend do sistema consumidor.
+
+        Fluxo esperado:
+        1. o frontend autentica o usuário via Keycloak e obtém o `access_token`;
+        2. o frontend envia esse token ao backend do sistema de origem;
+        3. o backend do sistema de origem chama este endpoint central do Tesouro;
+        4. o backend central valida:
+           - se o `access_token` é válido;
+           - se o sistema de origem (`idSistema`) é reconhecido;
+           - se a `clientKey` confere com o sistema informado;
+           - se o usuário autenticado pode acessar aquele sistema.
+
+        Esse endpoint é indicado para sistemas que desejam delegar ao backend central do Tesouro a lógica de:
+        autenticação, validação do sistema consumidor e autorização inicial do usuário no sistema.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidarTokenRequest'
+      responses:
+        '200':
+          description: Token válido e usuário autorizado para o sistema.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidarTokenSuccessResponse'
+        '400':
+          description: Parâmetros obrigatórios ausentes ou payload inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Token ausente, inválido ou expirado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Sistema/clientKey inválidos ou usuário sem acesso ao sistema.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - $ref: '#/components/schemas/ValidarTokenForbiddenResponse'
+
+  /enviar-email:
+    post:
+      tags: [Mensageria]
+      summary: Solicita envio automático de e-mail institucional
+      description: |
+        Endpoint central de envio automático de e-mail institucional.
+
+        O sistema consumidor chama este endpoint do backend do Tesouro enviando o payload da mensagem
+        e a `clientKey` do sistema de origem.
+
+        O backend central:
+        - valida o payload;
+        - obtém ou reutiliza token técnico via `client_credentials`;
+        - chama a API institucional de e-mail;
+        - devolve o resultado final ao sistema consumidor.
+
+        O frontend não deve chamar a API institucional de e-mail diretamente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+      responses:
+        '200':
+          description: Processamento do envio concluído com sucesso pelo backend.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnviarEmailResponse'
+        '400':
+          description: Payload inválido ou regra de validação não atendida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Falha de autenticação técnica na API institucional de e-mail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnviarEmailResponse'
+        '500':
+          description: Erro interno do backend.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

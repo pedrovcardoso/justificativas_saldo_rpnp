@@ -67,7 +67,7 @@ async function loadData() {
 
     if (!tiposJustificativa.length) {
         try {
-            const res = await getTiposJustificativa(session.user, session.token);
+            const res = await getTiposJustificativa();
             tiposJustificativa = (res.ok && res.data?.data) ? res.data.data.filter(t => t.ativo) : [];
         } catch (e) {
             tiposJustificativa = [];
@@ -80,7 +80,7 @@ async function loadData() {
     if (cached) {
         rowsData = JSON.parse(cached);
     } else {
-        const res = await getData(session.user, session.token);
+        const res = await getData();
         if (!res.ok || !res.data?.success) {
             document.getElementById("stateErrorMsg").textContent = res.data?.error || "Falha técnica na extração dos dados.";
             showState("stateError");
@@ -105,7 +105,7 @@ async function loadData() {
     }
 
     try {
-        const statusRes = await checkStatus(session.user, session.token);
+        const statusRes = await checkStatus();
         if (statusRes.ok && statusRes.data?.success) {
             statusHistory = statusRes.data.data.status || [];
             const latestMap = {};
@@ -1405,7 +1405,7 @@ async function handleAdminConfirm() {
     }
     inputs?.forEach(el => el.disabled = true);
 
-    const res = await avaliarStatus(session.user, session.token, currentRppn, entryId, avaliacao, motivo);
+    const res = await avaliarStatus(currentRppn, entryId, avaliacao, motivo);
     const result = Array.isArray(res.data) ? res.data[0] : res.data;
     const isSuccess = res.ok && result?.success;
 
@@ -1458,7 +1458,7 @@ async function handleConfirm() {
     }
     inputs?.forEach(el => el.disabled = true);
 
-    const res = await justificar(session.user, session.token, currentRppn, acao, just);
+    const res = await justificar(currentRppn, acao, just);
     const result = Array.isArray(res.data) ? res.data[0] : res.data;
     const isSuccess = res.ok && result?.success;
 
@@ -1600,7 +1600,7 @@ async function handleBatchConfirm() {
     const dados = Array.from(selectedRppns).map(rppn => ({ rppn }));
 
     try {
-        const res = await justificarLote(session.user, session.token, acao, just, dados);
+        const res = await justificarLote(acao, just, dados);
         if (res.ok && Array.isArray(res.data)) {
             showBatchResults(res.data);
         } else {

@@ -53,12 +53,7 @@ function requireAdmin(redirectPath = "/frontend/pages/dashboard/index.html") {
 }
 
 async function doLogout(loginPath = "/frontend/pages/login/index.html") {
-    const session = getSession();
-    if (session) {
-        try {
-            await logout(session.user, session.token);
-        } catch (_) { }
-    }
     clearSession();
     window.location.href = loginPath;
 }
+

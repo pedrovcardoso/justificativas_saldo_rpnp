@@ -1,20 +1,4 @@
-const API_BASE = "http://localhost:3000/api";
-let AUTH_FLOW_URL = null;
-
-async function getAuthUrl() {
-    if (AUTH_FLOW_URL) return AUTH_FLOW_URL;
-    try {
-        const res = await fetch(`${API_BASE}/config`);
-        const data = await res.json();
-        if (data.success && data.data.AUTH_FLOW_URL) {
-            AUTH_FLOW_URL = data.data.AUTH_FLOW_URL;
-            return AUTH_FLOW_URL;
-        }
-    } catch (e) {
-        console.error("Erro ao carregar configuração:", e);
-    }
-    return null;
-}
+const API_BASE = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") ? "http://localhost:3000/api" : "/api";
 
 const API_URLS = {
     saveJustificativa: `${API_BASE}/justificativas/justificar`,
@@ -28,27 +12,33 @@ const API_URLS = {
     adminTiposJustificativa: `${API_BASE}/admin/tipos_justificativa`,
     userNotif: `${API_BASE}/user/notifications`,
     userNotifRead: `${API_BASE}/user/notifications/mark-read`,
+    authSend: `${API_BASE}/auth`,
+    authMe: `${API_BASE}/auth/me`,
 };
+
+function getBearer() {
+    const token = sessionStorage.getItem("rppn_token");
+    return token ? { "Authorization": `Bearer ${token}` } : {};
+}
 
 async function apiCall(url, body, method = "POST", isFormData = false) {
     try {
-        const options = {
-            method: method,
-        };
+        const options = { method };
+        const bearerHeaders = getBearer();
 
         if (method !== "GET" && method !== "HEAD" && body) {
             options.body = isFormData ? body : JSON.stringify(body);
-            if (!isFormData) {
-                options.headers = { "Content-Type": "application/json" };
-            }
+            options.headers = isFormData
+                ? { ...bearerHeaders }
+                : { "Content-Type": "application/json", ...bearerHeaders };
+        } else {
+            options.headers = { ...bearerHeaders };
         }
 
         const response = await fetch(url, options);
 
         let data = {};
-        try {
-            data = await response.json();
-        } catch (_) { }
+        try { data = await response.json(); } catch (_) { }
 
         return { ok: response.ok, status: response.status, data };
     } catch (error) {
@@ -57,126 +47,103 @@ async function apiCall(url, body, method = "POST", isFormData = false) {
     }
 }
 
-async function sendOtp(user) {
-    const url = await getAuthUrl();
-    return apiCall(url, { endpoint: "send_otp", user });
+async function sendOtp(username) {
+    return apiCall(API_URLS.authSend, { action: "send_otp", username });
 }
 
-async function validateOtp(user, otp_code) {
-    const url = await getAuthUrl();
-    return apiCall(url, { endpoint: "validate_otp", user, otp_code });
+async function validateOtp(username, otp_code) {
+    return apiCall(API_URLS.authSend, { action: "validate_otp", username, otp_code });
 }
 
-async function validateSession(user, token) {
-    const url = await getAuthUrl();
-    return apiCall(url, { endpoint: "validate_session", user, token });
+async function authMe() {
+    return apiCall(API_URLS.authMe, null, "GET");
 }
 
-async function logout(user, token) {
-    const url = await getAuthUrl();
-    return apiCall(url, { endpoint: "logout", user, token });
+async function justificar(rppn, acao, justificativa) {
+    return apiCall(API_URLS.saveJustificativa, { acao, justificativa, dados: [{ rppn }] });
 }
 
-async function justificar(user, token, rppn, acao, justificativa) {
-    return apiCall(API_URLS.saveJustificativa, {
-        user, token, acao, justificativa,
-        dados: [{ rppn }]
-    });
+async function justificarLote(acao, justificativa, dados) {
+    return apiCall(API_URLS.saveJustificativa, { acao, justificativa, dados });
 }
 
-async function justificarLote(user, token, acao, justificativa, dados) {
-    return apiCall(API_URLS.saveJustificativa, {
-        user, token, acao, justificativa, dados
-    });
+async function avaliarStatus(rppn, id, status, motivo_rejeicao = "") {
+    return apiCall(API_URLS.avaliarStatus, { status, motivo_rejeicao, dados: [{ rppn, id }] });
 }
 
-async function avaliarStatus(user, token, rppn, id, status, motivo_rejeicao = "") {
-    return apiCall(API_URLS.avaliarStatus, {
-        user, token, status,
-        motivo_rejeicao,
-        dados: [{ rppn, id }]
-    });
+async function getData() {
+    return apiCall(API_URLS.getData, {});
 }
 
-async function getData(user, token) {
-    return apiCall(API_URLS.getData, { user, token });
+async function checkStatus() {
+    return apiCall(API_URLS.checkStatus, {});
 }
 
-async function checkStatus(user, token) {
-    return apiCall(API_URLS.checkStatus, { user, token });
+async function getUsers() {
+    return apiCall(API_URLS.adminUsers, null, "GET");
 }
 
-async function getUsers(user, token) {
-    const url = await getAuthUrl();
-    const res = await apiCall(url, { endpoint: 'get_users', user, token });
-    return res;
+async function createUser(payload) {
+    return apiCall(API_URLS.adminUsers, payload);
 }
 
-async function createUser(user, token, payload) {
-    const url = await getAuthUrl();
-    return apiCall(url, { ...payload, user, token, endpoint: 'create_user' });
+async function updateUser(payload) {
+    return apiCall(API_URLS.adminUsers, payload, "PUT");
 }
 
-async function updateUser(user, token, payload) {
-    const url = await getAuthUrl();
-    return apiCall(url, { ...payload, user, token, endpoint: 'update_user' });
+async function getNotifications() {
+    return apiCall(API_URLS.adminNotif, null, "GET");
 }
 
-async function getNotifications(user, token) {
-    return apiCall(`${API_URLS.adminNotif}?user=${encodeURIComponent(user)}&token=${encodeURIComponent(token)}`, null, "GET");
+async function createNotification(payload) {
+    return apiCall(API_URLS.adminNotif, payload);
 }
 
-async function createNotification(user, token, payload) {
-    return apiCall(API_URLS.adminNotif, { ...payload, user, token });
+async function updateNotification(payload) {
+    return apiCall(API_URLS.adminNotif, payload, "PUT");
 }
 
-async function updateNotification(user, token, payload) {
-    return apiCall(API_URLS.adminNotif, { ...payload, user, token }, "PUT");
+async function deleteNotification(id) {
+    return apiCall(API_URLS.adminNotif, { id }, "DELETE");
 }
 
-async function deleteNotification(user, token, id) {
-    return apiCall(API_URLS.adminNotif, { user, token, id }, "DELETE");
+async function getLegislacao() {
+    return apiCall(API_URLS.adminLeg, null, "GET");
 }
 
-async function getLegislacao(user, token) {
-    return apiCall(`${API_URLS.adminLeg}?user=${encodeURIComponent(user)}&token=${encodeURIComponent(token)}`, null, "GET");
+async function saveLegislacao(items) {
+    return apiCall(API_URLS.adminLeg, { items });
 }
 
-async function saveLegislacao(user, token, items) {
-    return apiCall(API_URLS.adminLeg, { user, token, items });
-}
-
-async function importCSV(user, token, file) {
+async function importCSV(file) {
     const formData = new FormData();
-    formData.append("user", user);
-    formData.append("token", token);
     formData.append("file", file);
     return apiCall(API_URLS.adminImport, formData, "POST", true);
 }
 
-async function getUserNotifications(user) {
-    return apiCall(`${API_URLS.userNotif}?user=${encodeURIComponent(user)}`, null, "GET");
+async function getUserNotifications() {
+    return apiCall(API_URLS.userNotif, null, "GET");
 }
 
-async function markAllNotificationsAsRead(user) {
-    return apiCall(API_URLS.userNotifRead, { user });
+async function markAllNotificationsAsRead() {
+    return apiCall(API_URLS.userNotifRead, {});
 }
 
-async function getTiposJustificativa(user, token) {
-    return apiCall(`${API_URLS.adminTiposJustificativa}?user=${encodeURIComponent(user)}&token=${encodeURIComponent(token)}`, null, "GET");
+async function getTiposJustificativa() {
+    return apiCall(API_URLS.adminTiposJustificativa, null, "GET");
 }
 
-async function saveTipoJustificativa(user, token, payload) {
-    return apiCall(API_URLS.adminTiposJustificativa, { ...payload, user, token });
+async function saveTipoJustificativa(payload) {
+    return apiCall(API_URLS.adminTiposJustificativa, payload);
 }
 
-async function deleteTipoJustificativa(user, token, id) {
-    return apiCall(`${API_URLS.adminTiposJustificativa}/${id}?user=${encodeURIComponent(user)}&token=${encodeURIComponent(token)}`, null, "DELETE");
+async function deleteTipoJustificativa(id) {
+    return apiCall(`${API_URLS.adminTiposJustificativa}/${id}`, null, "DELETE");
 }
 
 if (typeof module !== "undefined") {
     module.exports = {
-        sendOtp, validateOtp, validateSession, logout,
+        sendOtp, validateOtp, authMe,
         justificar, justificarLote, avaliarStatus,
         getData, checkStatus,
         getUsers, createUser, updateUser,

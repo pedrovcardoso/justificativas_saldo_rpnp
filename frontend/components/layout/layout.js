@@ -192,15 +192,15 @@ const Layout = {
         if (!session) return;
 
         try {
-            if (typeof validateSession === 'function') {
-                const res = await validateSession(session.user, session.token);
+            if (typeof authMe === 'function') {
+                const res = await authMe();
                 if (res.ok && res.data?.success) {
-                    const { token, role, uo } = res.data.data;
+                    const { role, uo } = res.data.data;
                     if (typeof saveSession === 'function') {
-                        saveSession(session.user, token, role, uo);
+                        saveSession(session.user, session.token, role, uo);
                         this.setupUserDisplay();
                     }
-                } else if (res.status === 401 || res.status === 404) {
+                } else if (res.status === 401 || res.status === 403) {
                     if (typeof clearSession === 'function') clearSession();
                     window.location.href = "/frontend/pages/login/index.html";
                 }
@@ -224,7 +224,7 @@ const Layout = {
 
         const updateNotifications = async () => {
             try {
-                const res = await getUserNotifications(session.user);
+                const res = await getUserNotifications();
                 if (res.ok) {
                     const notifications = res.data.data || [];
                     const unreadCount = notifications.filter(n => !n.lida).length;
@@ -262,7 +262,7 @@ const Layout = {
 
         markAllBtn.onclick = async (e) => {
             e.stopPropagation();
-            const res = await markAllNotificationsAsRead(session.user);
+            const res = await markAllNotificationsAsRead();
             if (res.ok) {
                 updateNotifications();
             }
