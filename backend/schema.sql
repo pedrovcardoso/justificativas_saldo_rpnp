@@ -89,3 +89,24 @@ CREATE TABLE IF NOT EXISTS config (
   chave VARCHAR(255) PRIMARY KEY,
   valor TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(255) NOT NULL UNIQUE,
+  role ENUM('user', 'admin') NOT NULL DEFAULT 'user',
+  uo VARCHAR(50),
+  ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_username (username)
+);
+
+CREATE TABLE IF NOT EXISTS otp_sessions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(255) NOT NULL,
+  otp_code VARCHAR(10) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  usado BOOLEAN NOT NULL DEFAULT FALSE,
+  criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_username_otp (username),
+  INDEX idx_expires (expires_at)
+);

@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "jose": "^6.2.3",
     "mysql2": "^3.18.2",
     "next": "16.1.6",
     "react": "19.2.3",

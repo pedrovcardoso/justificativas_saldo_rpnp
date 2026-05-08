@@ -4,12 +4,6 @@ import { ok, authError, badRequest, notFound, serverError } from '@/lib/response
 
 export async function GET(request) {
     try {
-        const params = new URL(request.url).searchParams;
-        const user = params.get('user');
-        const token = params.get('token');
-
-        if (!user || !token) return badRequest('Campos "user" e "token" são obrigatórios.');
-
         const auth = await requireAuth(request);
         if (auth.error) return authError(auth);
 

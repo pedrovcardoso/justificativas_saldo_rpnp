@@ -2,10 +2,10 @@
     const s = getSession();
     if (s) {
         try {
-            const res = await validateSession(s.user, s.token);
+            const res = await authMe();
             if (res.ok && res.data?.success) {
-                const { token, role, uo } = res.data.data;
-                saveSession(s.user, token, role, uo);
+                const { role, uo } = res.data.data;
+                saveSession(s.user, s.token, role, uo);
                 window.location.href = "/frontend/pages/dashboard/index.html";
             } else {
                 clearSession();
@@ -42,16 +42,16 @@ function setLoading(btnId, loading, originalText) {
 
 async function handleSendOtp() {
     hideAlert();
-    const user = document.getElementById("inputEmail").value.trim();
-    if (!user) { showAlert("E-mail corporativo é obrigatório"); return; }
+    const username = document.getElementById("inputEmail").value.trim();
+    if (!username) { showAlert("E-mail corporativo é obrigatório"); return; }
 
     setLoading("btnSendOtp", true, "Solicitar Código");
-    const res = await sendOtp(user);
+    const res = await sendOtp(username);
     setLoading("btnSendOtp", false, "Solicitar Código de Acesso");
 
     if (res.ok && res.data?.success) {
-        currentUser = user;
-        document.getElementById("otpDesc").textContent = `Enviamos o código para ${user}. Verifique sua caixa de entrada.`;
+        currentUser = username;
+        document.getElementById("otpDesc").textContent = `Enviamos o código para ${username}. Verifique sua caixa de entrada.`;
         document.getElementById("stepEmail").classList.add("hidden");
         document.getElementById("stepOtp").classList.remove("hidden");
         setTimeout(() => {

@@ -89,7 +89,7 @@ async function init() {
     showState("stateLoading");
     await loadDescriptiveData();
 
-    const res = await getData(session.user, session.token);
+    const res = await getData();
     if (!res.ok || !res.data?.success) {
         showState("stateEmpty");
         return;
@@ -127,7 +127,7 @@ async function init() {
 
 async function fetchStatusUpdates() {
     try {
-        const res = await checkStatus(session.user, session.token);
+        const res = await checkStatus();
         const data = res.ok && res.data?.success ? res.data.data : [];
         const finalData = Array.isArray(data) ? data : (data?.rows || []);
         return Array.isArray(finalData) ? finalData : [];

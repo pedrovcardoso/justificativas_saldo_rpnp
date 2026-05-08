@@ -23,7 +23,7 @@ function normalize(text) {
 async function init() {
     ["filterTipo", "filterEsfera", "filterStatus", "filterAno"].forEach(id => renderSkeletonSelect(id));
     try {
-        const res = await getLegislacao(session?.user || "", session?.token || "");
+        const res = await getLegislacao();
         if (res.ok && res.data) {
             const arr = res.data.data || [];
             allLegislacoes = arr.map(l => {

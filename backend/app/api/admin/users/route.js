@@ -1,49 +1,55 @@
+import db from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
-import { ok, authError, badRequest, serverError } from '@/lib/response';
-
-const ADMIN_FLOW_URL = process.env.ADMIN_FLOW_URL;
+import { ok, authError, badRequest, conflict, notFound, serverError } from '@/lib/response';
 
 export async function GET(request) {
-    try {
-        const body = Object.fromEntries(new URL(request.url).searchParams);
-        const { user, token } = body;
+    const admin = await requireAdmin(request);
+    if (admin.error) return authError(admin);
 
-        if (!user || !token) return badRequest('Campos "user" e "token" são obrigatórios.');
-
-        const response = await fetch(ADMIN_FLOW_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ endpoint: 'get_users', user, token }),
-        });
-
-        const data = await response.json();
-        return Response.json(data, { status: response.status });
-    } catch (e) {
-        return serverError(e.message);
-    }
+    const [rows] = await db.query(
+        'SELECT id, username, role, uo, ativo, criado_em FROM usuarios ORDER BY criado_em DESC'
+    );
+    return ok(rows, 'Usuários obtidos com sucesso.');
 }
 
 export async function POST(request) {
-    try {
-        const authReq = request.clone();
-        const admin = await requireAdmin(authReq);
-        if (admin.error) return authError(admin);
+    const admin = await requireAdmin(request);
+    if (admin.error) return authError(admin);
 
-        const { username, role, uo, action } = admin.body;
+    const { username, role, uo } = admin.body;
+    if (!username || !role) return badRequest('Campos "username" e "role" são obrigatórios.');
+    if (!['user', 'admin'].includes(role)) return badRequest('Role inválida.');
 
-        if (!username || !role) return badRequest('Campos "username" e "role" são obrigatórios.');
+    const [existing] = await db.query('SELECT id FROM usuarios WHERE username = ?', [username]);
+    if (existing.length > 0) return conflict('Usuário já cadastrado.');
 
-        const endpoint = action === 'update' ? 'update_user' : 'create_user';
+    const [result] = await db.query(
+        'INSERT INTO usuarios (username, role, uo) VALUES (?, ?, ?)',
+        [username, role, uo || null]
+    );
+    return ok({ id: result.insertId, username, role, uo: uo || null }, 'Usuário criado com sucesso.');
+}
 
-        const response = await fetch(ADMIN_FLOW_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ endpoint, user: admin.user, token: admin.body.token, username, role, uo }),
-        });
+export async function PUT(request) {
+    const admin = await requireAdmin(request);
+    if (admin.error) return authError(admin);
 
-        const data = await response.json();
-        return Response.json(data, { status: response.status });
-    } catch (e) {
-        return serverError(e.message);
-    }
+    const { id, role, uo, ativo } = admin.body;
+    if (!id) return badRequest('Campo "id" é obrigatório.');
+    if (role && !['user', 'admin'].includes(role)) return badRequest('Role inválida.');
+
+    const [existing] = await db.query('SELECT id FROM usuarios WHERE id = ?', [id]);
+    if (existing.length === 0) return notFound('Usuário não encontrado.');
+
+    const fields = [];
+    const params = [];
+    if (role !== undefined) { fields.push('role = ?'); params.push(role); }
+    if (uo !== undefined) { fields.push('uo = ?'); params.push(uo || null); }
+    if (ativo !== undefined) { fields.push('ativo = ?'); params.push(ativo ? 1 : 0); }
+
+    if (fields.length === 0) return badRequest('Nenhum campo para atualizar.');
+
+    params.push(id);
+    await db.query(`UPDATE usuarios SET ${fields.join(', ')} WHERE id = ?`, params);
+    return ok({ id }, 'Usuário atualizado com sucesso.');
 }

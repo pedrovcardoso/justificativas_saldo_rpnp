@@ -56,7 +56,7 @@ function switchTab(tab) {
 }
 
 async function loadUsers() {
-    const res = await getUsers(session.user, session.token);
+    const res = await getUsers();
     const loading = document.getElementById("usersStateLoading");
     const notImpl = document.getElementById("usersStateNotImpl");
     const table = document.getElementById("usersTable");
@@ -113,7 +113,7 @@ async function handleSaveUser() {
     btn.disabled = true;
     btn.innerHTML = `<i class='bx bx-loader-alt animate-spin mr-2'></i> Salvando…`;
 
-    const res = await createUser(session.user, session.token, { username, role, uo });
+    const res = await createUser({ username, role, uo });
     btn.disabled = false;
     btn.textContent = "Salvar Usuário";
 
@@ -171,7 +171,7 @@ async function loadStats() {
         console.error("Erro ao carregar dados descritivos para stats:", err);
     }
 
-    const res = await getData(session.user, session.token);
+    const res = await getData();
     if (!res.ok || !res.data?.success) {
         if (loading) loading.classList.add("hidden");
         return;
@@ -184,7 +184,7 @@ async function loadStats() {
     }
 
     let statuses = [];
-    const statusRes = await checkStatus(session.user, session.token);
+    const statusRes = await checkStatus();
     if (statusRes.ok && statusRes.data?.success) {
         const data = statusRes.data.data;
         statuses = Array.isArray(data) ? data : (data?.rows || data?.status || []);
@@ -773,7 +773,7 @@ async function loadLegislacao() {
     if (empty) empty.classList.add("hidden");
 
     try {
-        const res = await getLegislacao(session.user, session.token);
+        const res = await getLegislacao();
         if (res.ok && res.data) {
             const arr = res.data.data || [];
             legData = arr.map(l => {
@@ -879,7 +879,7 @@ function handleSaveLeg() {
 
     renderLegTable();
     closeLegModal();
-    saveLegislacao(session.user, session.token, legData).then(res => {
+    saveLegislacao(legData).then(res => {
         if (res.ok && res.data?.success !== false) {
             showToast("Legislação salva com sucesso!");
         } else {
@@ -911,7 +911,7 @@ function deleteLeg(index) {
 
         try {
             legData.splice(index, 1);
-            const res = await saveLegislacao(session.user, session.token, legData);
+            const res = await saveLegislacao(legData);
             if (res.ok && res.data?.success !== false) {
                 showToast("Legislação excluída com sucesso!", "success");
                 renderLegTable();
@@ -951,7 +951,7 @@ async function loadNotifications() {
     if (empty) empty.classList.add("hidden");
 
     try {
-        const res = await getNotifications(session.user, session.token);
+        const res = await getNotifications();
         if (res.ok) {
             const notifications = res.data.data || [];
             renderNotifTable(notifications);
@@ -1024,8 +1024,8 @@ async function handleSaveNotif() {
 
     try {
         const res = editingNotifId
-            ? await updateNotification(session.user, session.token, payload)
-            : await createNotification(session.user, session.token, payload);
+            ? await updateNotification(payload)
+            : await createNotification(payload);
 
         if (res.ok && res.data?.success !== false) {
             closeNotifModal();
@@ -1049,7 +1049,7 @@ function deleteNotif(id) {
         btn.innerHTML = `<i class='bx bx-loader-alt animate-spin mr-2'></i> Excluindo…`;
 
         try {
-            const res = await deleteNotification(session.user, session.token, id);
+            const res = await deleteNotification(id);
             if (res.ok) {
                 showToast("Notificação excluída com sucesso.", "success");
                 loadNotifications();
@@ -1087,7 +1087,7 @@ async function loadTiposJustificativa() {
     if (empty) empty.classList.add("hidden");
 
     try {
-        const res = await getTiposJustificativa(session.user, session.token);
+        const res = await getTiposJustificativa();
         tiposData = (res.ok && res.data?.data) ? res.data.data : [];
     } catch (e) {
         tiposData = [];
@@ -1308,7 +1308,7 @@ async function handleSaveTipo() {
     btn.innerHTML = `<i class='bx bx-loader-alt animate-spin mr-2'></i> Salvando…`;
 
     try {
-        const res = await saveTipoJustificativa(session.user, session.token, payload);
+        const res = await saveTipoJustificativa(payload);
         if (res.ok && res.data?.success !== false) {
             closeTipoModal();
             loadedTabs.delete("tipos_justificativa");
@@ -1331,7 +1331,7 @@ function deleteTipo(id) {
         btn.disabled = true;
         btn.innerHTML = `<i class='bx bx-loader-alt animate-spin mr-2'></i> Excluindo…`;
         try {
-            const res = await deleteTipoJustificativa(session.user, session.token, id);
+            const res = await deleteTipoJustificativa(id);
             if (res.ok && res.data?.success !== false) {
                 showToast("Tipo excluído com sucesso.", "success");
                 loadedTabs.delete("tipos_justificativa");
@@ -1381,7 +1381,7 @@ async function handleImportCSV() {
     btn.innerHTML = `<i class='bx bx-loader-alt animate-spin text-lg'></i> Importando…`;
     alert.classList.add("hidden");
 
-    const res = await importCSV(session.user, session.token, file);
+    const res = await importCSV(file);
 
     btn.disabled = false;
     btn.innerHTML = `<i class='bx bx-check-double text-lg'></i> Iniciar Importação`;
